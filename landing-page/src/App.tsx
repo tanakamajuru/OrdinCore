@@ -1,227 +1,114 @@
 import { useEffect, useState } from "react";
-import { Button } from "./components/ui/button";
-import { Card } from "./components/ui/card";
-import { cn } from "./lib/utils";
-import logoImg from "./assets/logo-wordmark.png";
-import heroSeeWorseImg from "./assets/See what is getting worse eralier.png";
-import heroTrackConcernsImg from "./assets/track concerns.png";
-import heroMaintainStrongerImg from "./assets/Maintain stronger.png";
-import problemRepeatedConcernsImg from "./assets/direct feedback.png";
-import problemEscalationsLosingVisibilityImg from "./assets/escalations losing visibility.png";
-import problemRisksIncreasingHousesImg from "./assets/Risks Increasing accross houses.png";
-import problemActionsNotBeingFollowedImg from "./assets/Actions not being follwed.png";
-import problemOverRelianceMemoryImg from "./assets/over-reliance on memory.png";
-import problemDifficultyOversightImg from "./assets/governance becomes diff.png";
-import workflowDailySignalImg from "./assets/Daily governance signal.png";
-import workflowTrajectoryAwarenessImg from "./assets/trajectorry awareness.png";
-import workflowEscalationLeadershipImg from "./assets/escalation & leadership decisions.png";
-import workflowWeeklyReviewImg from "./assets/Weekly Governance Review.png";
-import workflowOversightNarrativeImg from "./assets/Oversight Narrative.png";
-import audienceDirectorsImg from "./assets/Directors.png";
-import audienceResponsibleIndividualsImg from "./assets/Responsible Individuals.png";
-import audienceRegisteredManagersImg from "./assets/interaction.png";
-import audienceSupportedLivingProvidersImg from "./assets/supported living persons.png";
-import audienceMentalHealthServicesImg from "./assets/mental Health & Community services.png";
-import supportImg from "./assets/support.png";
-import interactionImg from "./assets/interaction.png";
-import structuredReviewImg from "./assets/structured review.png";
-import earlyAccessImg from "./assets/early access.png";
-import governanceIsImg from "./assets/governance is.png";
-import governanceDiff2Img from "./assets/governance becomes diff 2.png";
-import designedToSupportGovernanceImg from "./assets/designed  to support governance.png";
-import rightArrowImg from "./assets/right arrow.png";
+import type { CSSProperties, FormEvent, MouseEvent, ReactNode } from "react";
+import "./redesign.css";
+import { PilotStructureSection, PricingTableSection } from "./PricingSection";
 
-// Role-based screenshot imports
+import logoImg from "./assets/logo-wordmark.png";
+import logoDarkImg from "./assets/logo-wordmark-dark.png";
+
+// Role-based screenshots (hero)
 import roleTeamLeaderImg from "./assets/role_team_leader.png";
 import roleRegisteredManagerImg from "./assets/role_registered_manager.png";
 import roleResponsibleIndividualImg from "./assets/role_responsible_individual.png";
 import roleDirectorImg from "./assets/role_director.png";
 
-// Governance Output screenshot imports
+// Governance output screenshots (How It Works)
 import outputPulseReviewImg from "./assets/output_pulse_review.png";
 import outputRiskTrajectoryImg from "./assets/output_risk_trajectory.png";
 import outputEscalationTrackingImg from "./assets/output_escalation_tracking.png";
 import outputRhythmCompletionImg from "./assets/output_rhythm_completion.png";
 import outputOversightNarrativeImg from "./assets/output_oversight_narrative.png";
 
-import {
-  CheckBadgeIcon,
-  ChevronDownIcon,
-  MoonIcon,
-  SunIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
-
 // Website enquiries POST here; the Ordin Core backend emails them via the org's own SMTP.
 const CONTACT_API = "https://work.ordincore.co.uk/api/v1/contact";
+const LOGIN_URL = "https://work.ordincore.co.uk";
+
+/* ─── Content (copy is exactly as on the current site) ─────────────────── */
 
 const NAV_LINKS = [
   { label: "Why Ordin Core", href: "#why" },
   { label: "How It Works", href: "#workflow" },
   { label: "For Who", href: "#audience" },
-  // Pricing section hidden for now (25 Oct 2026) — remove this comment and restore the
-  // link when the pricing section is re-enabled above.
   { label: "FAQ", href: "#faq" },
-  { label: "Login", href: "https://work.ordincore.co.uk" },
 ];
 
-const PROBLEM_CARDS = [
-  {
-    image: problemRepeatedConcernsImg,
-    title: "Repeated Concerns Across Shifts",
-    description: "Small issues repeated over time can indicate larger operational pressure.",
-    color: "bg-brand-soft/20 text-[#28536F] border border-brand-border/30",
-  },
-  {
-    image: problemEscalationsLosingVisibilityImg,
-    title: "Escalations Losing Visibility",
-    description: "Important concerns can become unclear once shifts change or teams rotate.",
-    color: "bg-brand-soft/20 text-[#28536F] border border-brand-border/30",
-  },
-  {
-    image: problemRisksIncreasingHousesImg,
-    title: "Risks Increasing Across Houses",
-    description: "Leadership teams need clearer visibility of worsening patterns across services.",
-    color: "bg-brand-soft/20 text-[#28536F] border border-brand-border/30",
-  },
-  {
-    image: problemActionsNotBeingFollowedImg,
-    title: "Actions Not Being Followed Through",
-    description: "Operational actions should remain visible until completed and reviewed.",
-    color: "bg-brand-soft/20 text-[#28536F] border border-brand-border/30",
-  },
-  {
-    image: problemOverRelianceMemoryImg,
-    title: "Over-Reliance on Memory & Messaging",
-    description: "Critical oversight should not rely on WhatsApp messages, verbal updates or memory.",
-    color: "bg-brand-soft/20 text-[#28536F] border border-brand-border/30",
-  },
-  {
-    image: problemDifficultyOversightImg,
-    title: "Difficulty Demonstrating Oversight",
-    description: "Services often struggle to evidence operational governance during inspections.",
-    color: "bg-brand-soft/20 text-[#28536F] border border-brand-border/30",
-  },
+const HERO_TABS = [
+  { key: "team leader", label: "Team Leader", image: roleTeamLeaderImg, alt: "team_leader screenshot" },
+  { key: "registered manager", label: "Registered Manager", image: roleRegisteredManagerImg, alt: "registered_manager screenshot" },
+  { key: "RI / nominated", label: "RI / Nominated", image: roleResponsibleIndividualImg, alt: "responsible_individual screenshot" },
+  { key: "director", label: "Director", image: roleDirectorImg, alt: "director screenshot" },
 ];
 
-const WORKFLOW_STEPS = [
-  {
-    number: "1",
-    title: "Daily Governance Signal",
-    description: "Operational concerns or pressures are identified and recorded.",
-    example: "Examples: medication concern, repeated safeguarding themes, staffing instability, deterioration in service culture, repeated incidents.",
-    image: workflowDailySignalImg,
-  },
-  {
-    number: "2",
-    title: "Trajectory Awareness",
-    description: "Repeated patterns and worsening concerns become visible over time.",
-    example: "Patterns are analysed across services, shifts and teams.",
-    image: workflowTrajectoryAwarenessImg,
-  },
-  {
-    number: "3",
-    title: "Escalation & Leadership Decisions",
-    description: "Managers review concerns, assign actions and track operational follow-up.",
-    example: "Decisions are recorded with ownership and timescales.",
-    image: workflowEscalationLeadershipImg,
-  },
-  {
-    number: "4",
-    title: "Weekly Governance Review",
-    description: "Leadership teams conduct structured operational governance review across services.",
-    example: "Risks, actions and progress are reviewed.",
-    image: workflowWeeklyReviewImg,
-  },
-  {
-    number: "5",
-    title: "Oversight Narrative",
-    description: "Governance visibility and leadership decisions remain reconstructable over time.",
-    example: "Clear continuity of oversight is maintained.",
-    image: workflowOversightNarrativeImg,
-  },
+const HERO_POINTS = [
+  "See what is getting worse earlier across services",
+  "Track escalations cleanly with assigned leadership actions",
+  "Evidence robust governance to regulators dynamically",
 ];
 
-const AUDIENCE_CARDS = [
-  {
-    image: audienceDirectorsImg,
-    title: "Directors",
-    description: "Cross-service governance visibility and operational oversight across multiple houses and teams.",
-  },
-  {
-    image: audienceResponsibleIndividualsImg,
-    title: "Responsible Individuals / Nominated Individuals",
-    description: "Structured assurance and clearer visibility of operational governance over time.",
-  },
-  {
-    image: audienceRegisteredManagersImg,
-    title: "Registered Managers",
-    description: "Daily operational review, escalation visibility and governance follow-up support.",
-  },
-  {
-    image: audienceSupportedLivingProvidersImg,
-    title: "Supported Living Providers",
-    description: "Improved visibility across houses, staffing pressures and service-level concerns.",
-  },
-  {
-    image: audienceMentalHealthServicesImg,
-    title: "Mental Health & Community Services",
-    description: "Supports governance review within complex and high-risk operational environments.",
-  },
-];
-
-const GOVERNANCE_OUTPUTS = [
-  { name: "pulse", label: "Governance Pulse Review", image: outputPulseReviewImg, desc: "A service-by-service checklist showing daily and weekly completion rates." },
-  { name: "risk", label: "Cross-House Risk Trajectory", image: outputRiskTrajectoryImg, desc: "A dashboard showing which houses are improving, stable, or worsening over time." },
-  { name: "escalation", label: "Escalation Tracking View", image: outputEscalationTrackingImg, desc: "Operational escalations mapped to active leadership interventions." },
-  { name: "rhythm", label: "Governance Rhythm Completion", image: outputRhythmCompletionImg, desc: "Compliance tracker mapping weekly executive checks." },
-  { name: "narrative", label: "Monthly Oversight Narrative", image: outputOversightNarrativeImg, desc: "A compiled audit trail detailing the reasoning behind key leadership decisions." },
-];
-
-const PILOT_BENEFITS = [
-  { label: "Onboarding support", image: supportImg },
-  { label: "Governance workflow guidance", image: interactionImg },
-  { label: "Structured review sessions", image: structuredReviewImg },
-  { label: "Early platform access", image: earlyAccessImg },
-  { label: "Direct feedback opportunities", image: governanceIsImg },
+const STATS = [
+  { to: 3, prefix: "", suffix: " min", sr: "3 minutes", label: "Rapid 3-minute inputs" },
+  { to: 2, prefix: "<", suffix: " weeks", sr: "Less than 2 weeks", label: "Typically less than two weeks to implement" },
+  { to: 5, prefix: "", suffix: "", sr: "5", label: "Step governance loop" },
+  { to: 4, prefix: "", suffix: "", sr: "4", label: "Dedicated role views" },
 ];
 
 const FOUR_QUESTIONS = [
-  {
-    question: "What is getting worse?",
-    answer: "Identify recurring concerns and emerging operational pressures.",
-  },
-  {
-    question: "What needs our attention?",
-    answer: "Focus leadership time where it matters most.",
-  },
-  {
-    question: "Are we following through?",
-    answer: "Maintain visibility of actions, reviews and outcomes.",
-  },
-  {
-    question: "Can we demonstrate oversight over time?",
-    answer: "Maintain a structured, reconstructable record of governance activity.",
-  },
+  { q: "What is getting worse?", a: "Identify recurring concerns and emerging operational pressures." },
+  { q: "What needs our attention?", a: "Focus leadership time where it matters most." },
+  { q: "Are we following through?", a: "Maintain visibility of actions, reviews and outcomes." },
+  { q: "Can we demonstrate oversight over time?", a: "Maintain a structured, reconstructable record of governance activity." },
 ];
 
-const PILOT_TIMELINE = [
-  { phase: "Week 1", label: "Onboarding" },
-  { phase: "Week 2–4", label: "Governance rhythm implementation" },
-  { phase: "Week 5–8", label: "Operational review and optimisation" },
-  { phase: "Week 9–12", label: "Evaluation and governance outcomes review" },
+const PROBLEMS = [
+  { title: "Repeated Concerns Across Shifts", description: "Small issues repeated over time can indicate larger operational pressure." },
+  { title: "Escalations Losing Visibility", description: "Important concerns can become unclear once shifts change or teams rotate." },
+  { title: "Risks Increasing Across Houses", description: "Leadership teams need clearer visibility of worsening patterns across services." },
+  { title: "Actions Not Being Followed Through", description: "Operational actions should remain visible until completed and reviewed." },
+  { title: "Over-Reliance on Memory & Messaging", description: "Critical oversight should not rely on WhatsApp messages, verbal updates or memory." },
+  { title: "Difficulty Demonstrating Oversight", description: "Services often struggle to evidence operational governance during inspections." },
 ];
 
-
-const PILOT_INCLUDED = [
-  "Full platform access",
-  "Onboarding support",
-  "Governance review sessions",
-  "Priority support",
-  "Future feature consideration",
+const FRAGMENTED = [
+  "Different shifts and team rotations",
+  "Multiple services, locations and branches",
+  "Verbal updates and WhatsApp streams",
+  "Siloed databases and custom spreadsheets",
+  "Varying levels of management experience",
+  "Inspection stress due to poor audit trails",
 ];
 
-const FAQ_ITEMS = [
+const WORKFLOW_STEPS = [
+  { title: "Daily Governance Signal", description: "Operational concerns or pressures are identified and recorded.", example: "Examples: medication concern, repeated safeguarding themes, staffing instability, deterioration in service culture, repeated incidents.", output: "Governance Pulse Review", image: outputPulseReviewImg },
+  { title: "Trajectory Awareness", description: "Repeated patterns and worsening concerns become visible over time.", example: "Patterns are analysed across services, shifts and teams.", output: "Cross-House Risk Trajectory", image: outputRiskTrajectoryImg },
+  { title: "Escalation & Leadership Decisions", description: "Managers review concerns, assign actions and track operational follow-up.", example: "Decisions are recorded with ownership and timescales.", output: "Escalation Tracking View", image: outputEscalationTrackingImg },
+  { title: "Weekly Governance Review", description: "Leadership teams conduct structured operational governance review across services.", example: "Risks, actions and progress are reviewed.", output: "Governance Rhythm Completion", image: outputRhythmCompletionImg },
+  { title: "Oversight Narrative", description: "Governance visibility and leadership decisions remain reconstructable over time.", example: "Clear continuity of oversight is maintained.", output: "Monthly Oversight Narrative", image: outputOversightNarrativeImg },
+];
+
+const AUDIENCE = [
+  { title: "Directors", description: "Cross-service governance visibility and operational oversight across multiple houses and teams." },
+  { title: "Responsible Individuals / Nominated Individuals", description: "Structured assurance and clearer visibility of operational governance over time." },
+  { title: "Registered Managers", description: "Daily operational review, escalation visibility and governance follow-up support." },
+  { title: "Supported Living Providers", description: "Improved visibility across houses, staffing pressures and service-level concerns." },
+  { title: "Mental Health & Community Services", description: "Supports governance review within complex and high-risk operational environments." },
+];
+
+const MOST_PLATFORMS = ["Daily care logs & charts", "Medication (eMAR) logs", "Staff shift rostering", "Basic incident capture", "Folders for static policies"];
+const ORDIN_FOCUS = ["Governance visibility", "Worsening risk trajectories", "Active escalation tracking", "Assurance & rhythm oversight", "Regulatory inspection readiness"];
+const OUR_WORKFLOW = ["Rapid 3-minute inputs", "Visual traffic-light summaries", "Action and ownership logs", "Clean role delegation", "Structured reviews"];
+const AVOIDS = ["Duplicate log entries", "Lengthy essay formats", "Over-complicated software", "Administrative bloat"];
+const OVERSIGHT = ["A continuous audit trail of decisions", "Reconstructable evidence for inspections", "Clean delegation and task handovers", "Immediate visibility of neglected houses", "Structured support for new managers"];
+const SUPPORTS = ["Structured governance review", "Operational assurance", "Leadership continuity", "Internal oversight", "Inspection preparation"];
+
+const PILOT_BENEFITS = ["Onboarding support", "Governance workflow guidance", "Structured review sessions", "Early platform access", "Direct feedback opportunities"];
+const MORE_THAN_COMPLIANCE = [
+  "Catching repeated shift concerns before they compound",
+  "Logging worsening risk trajectories across separate houses",
+  "Ensuring escalations always have clear ownership & actions",
+  "Validating whether corrective measures are actually working over time",
+];
+
+const FAQS = [
   { q: "Is Ordin Core a care management system?", a: "No. Ordin Core is a governance oversight layer — it does not replace your care management system." },
   { q: "Does it replace care notes?", a: "No. Ordin Core sits alongside your care notes and existing records." },
   { q: "Does it replace incident systems?", a: "No. It brings governance concerns into a structured oversight process rather than replacing incident reporting." },
@@ -229,24 +116,44 @@ const FAQ_ITEMS = [
   { q: "Is staff training provided?", a: "Yes. Onboarding and staff training are included." },
 ];
 
-const FOOTER_LINKS = [
-  {
-    title: "Platform",
-    links: ["Why Ordin Core", "How It Works", "For Who", "Blog", "Pilot Programme"],
-  },
-  {
-    title: "Resources",
-    links: ["Governance Philosophy", "Example Outputs", "Care Sector Insights"],
-  },
-  {
-    title: "Company",
-    links: ["About Us", "Contact Us", "Pilot Enquiries"],
-  },
-  {
-    title: "Legal",
-    links: ["Privacy Policy", "Data Security", "Terms & Conditions"],
-  },
+const FOOTER_COLUMNS = [
+  { title: "Platform", links: [["Why Ordin Core", "#why"], ["How It Works", "#workflow"], ["For Who", "#audience"], ["Blog", "#"], ["Pilot Programme", "#pilot"]] },
+  { title: "Resources", links: [["Governance Philosophy", "#"], ["Example Outputs", "#workflow"], ["Care Sector Insights", "#"]] },
+  { title: "Company", links: [["About Us", "#"], ["Contact Us", "mailto:support@ordincore.co.uk"], ["Pilot Enquiries", "#apply"]] },
+  { title: "Legal", links: [["Privacy Policy", "/privacy/"], ["Data Security", "/data-security.html"], ["Terms & Conditions", "/terms-of-service.html"]] },
 ];
+
+/* ─── Small helpers ─────────────────────────────────────────────────────── */
+
+// Moves the soft blue spotlight on .spot cards to follow the cursor.
+const spot = (e: MouseEvent<HTMLElement>) => {
+  const el = e.currentTarget;
+  const r = el.getBoundingClientRect();
+  el.style.setProperty("--mx", `${e.clientX - r.left}px`);
+  el.style.setProperty("--my", `${e.clientY - r.top}px`);
+};
+
+const Check = ({ size = 18, color = "var(--accent)", width = 2.4 }: { size?: number; color?: string; width?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
+    <path d="M20 6 9 17l-5-5" />
+  </svg>
+);
+
+const Field = ({ id, label, error, children }: { id: string; label: string; error?: string | false; children: ReactNode }) => (
+  <div className="fld">
+    <label htmlFor={id}>{label}</label>
+    {children}
+    {error ? <span className="ferr" id={`${id}-err`}>{error}</span> : null}
+  </div>
+);
+
+type PilotForm = {
+  name: string; email: string; phone: string; organisation: string; role: string;
+  sites: string; serviceType: string; challenge: string; help: string; consent: boolean;
+};
+const EMPTY_FORM: PilotForm = { name: "", email: "", phone: "", organisation: "", role: "", sites: "", serviceType: "", challenge: "", help: "", consent: false };
+
+/* ─── Page ──────────────────────────────────────────────────────────────── */
 
 export default function App() {
   const [theme, setTheme] = useState<"dark" | "light">(() => {
@@ -254,1380 +161,487 @@ export default function App() {
     if (stored === "light" || stored === "dark") return stored;
     return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
-
-  // Modal / Form States
-  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
-  const [demoFormName, setDemoFormName] = useState("");
-  const [demoFormEmail, setDemoFormEmail] = useState("");
-  const [demoFormPhone, setDemoFormPhone] = useState("");
-  const [demoFormOrg, setDemoFormOrg] = useState("");
-  const [demoFormRole, setDemoFormRole] = useState("");
-  const [demoFormServices, setDemoFormServices] = useState("");
-  const [demoFormServiceType, setDemoFormServiceType] = useState("");
-  const [demoFormContactMethod, setDemoFormContactMethod] = useState("Email");
-  const [demoFormMessage, setDemoFormMessage] = useState(
-    "Hi! I am interested in learning more about how Ordin Core can help support our care service's operational governance. Please contact me to arrange a brief demonstration."
-  );
-  const [demoSubmitStatus, setDemoSubmitStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
-  const [demoSubmitError, setDemoSubmitError] = useState("");
-
-  // Pilot Programme Modal / Form States
-  const [isPilotModalOpen, setIsPilotModalOpen] = useState(false);
-  const [pilotFormName, setPilotFormName] = useState("");
-  const [pilotFormEmail, setPilotFormEmail] = useState("");
-  const [pilotFormPhone, setPilotFormPhone] = useState("");
-  const [pilotFormOrg, setPilotFormOrg] = useState("");
-  const [pilotFormRole, setPilotFormRole] = useState("");
-  const [pilotFormServices, setPilotFormServices] = useState("");
-  const [pilotFormServiceType, setPilotFormServiceType] = useState("");
-  const [pilotFormChallenge, setPilotFormChallenge] = useState("");
-  const [pilotFormHelp, setPilotFormHelp] = useState("");
-  const [pilotFormConsent, setPilotFormConsent] = useState(false);
-  const [pilotSubmitStatus, setPilotSubmitStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
-  const [pilotSubmitError, setPilotSubmitError] = useState("");
-
-  // Hero Tabbed Device Frame State
-  const [activeHeroTab, setActiveHeroTab] = useState<"team_leader" | "registered_manager" | "responsible_individual" | "director">("team_leader");
-
-  // Output Lightbox State
-  const [activeOutputDetail, setActiveOutputDetail] = useState<{ label: string; image: string; desc: string } | null>(null);
-
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     localStorage.setItem("theme", theme);
   }, [theme]);
+  const isDark = theme === "dark";
 
-  // Handle Form Submission — posts to the Ordin Core backend, which emails the enquiry
-  // via the organisation's own SMTP (no third-party form service).
-  const handleDemoSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setDemoSubmitStatus("submitting");
-    setDemoSubmitError("");
+  const [heroTab, setHeroTab] = useState(0);
+  const [step, setStep] = useState(0);
+  const [autoplay, setAutoplay] = useState(true);
+  const [openFaq, setOpenFaq] = useState(0);
 
-    try {
-      const response = await fetch(CONTACT_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "demo",
-          name: demoFormName,
-          email: demoFormEmail,
-          phone: demoFormPhone,
-          organisation: demoFormOrg,
-          role: demoFormRole,
-          number_of_services_sites: demoFormServices,
-          type_of_service: demoFormServiceType,
-          preferred_contact_method: demoFormContactMethod,
-          message: demoFormMessage,
-        }),
-      });
+  // Pilot application form (inline — no modal, no email redirect)
+  const [form, setForm] = useState<PilotForm>(EMPTY_FORM);
+  const [tried, setTried] = useState(false);
+  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [submitError, setSubmitError] = useState("");
+  const set = <K extends keyof PilotForm>(key: K, value: PilotForm[K]) => setForm((f) => ({ ...f, [key]: value }));
 
-      const data = await response.json();
-      if (data.success) {
-        setDemoSubmitStatus("success");
-        setDemoFormName("");
-        setDemoFormEmail("");
-        setDemoFormPhone("");
-        setDemoFormOrg("");
-        setDemoFormRole("");
-        setDemoFormServices("");
-        setDemoFormServiceType("");
-        setDemoFormContactMethod("Email");
-      } else {
-        setDemoSubmitStatus("error");
-        setDemoSubmitError(data.message || "Failed to submit demo request.");
-      }
-    } catch (err: any) {
-      setDemoSubmitStatus("error");
-      setDemoSubmitError(err.message || "An unexpected network error occurred.");
-    }
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
+  const problems = {
+    name: !form.name.trim() && "Enter your full name",
+    email: !emailOk && "Enter a valid email address",
+    phone: !form.phone.trim() && "Enter your phone number",
+    organisation: !form.organisation.trim() && "Enter your organisation name",
+    role: !form.role.trim() && "Enter your role",
+    sites: !form.sites.trim() && "Enter the number of services or sites",
+    serviceType: !form.serviceType && "Select a type of service",
+    challenge: !form.challenge.trim() && "Tell us your current governance challenge",
+    help: !form.help.trim() && "Tell us what you'd like to achieve",
+    consent: !form.consent && "Please tick to give consent",
   };
+  const err = (k: keyof typeof problems) => (tried ? problems[k] : false);
+  const isValid = Object.values(problems).every((v) => !v);
 
-  // Handle Pilot Programme Form Submission — posts to the Ordin Core backend (own SMTP).
-  const handlePilotSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handlePilotSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setPilotSubmitStatus("submitting");
-    setPilotSubmitError("");
-
+    if (!isValid) { setTried(true); return; }
+    setStatus("submitting");
+    setSubmitError("");
     try {
       const response = await fetch(CONTACT_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "pilot",
-          name: pilotFormName,
-          email: pilotFormEmail,
-          phone: pilotFormPhone,
-          organisation: pilotFormOrg,
-          role: pilotFormRole,
-          number_of_services_sites: pilotFormServices,
-          type_of_service: pilotFormServiceType,
-          current_governance_challenge: pilotFormChallenge,
-          what_ordin_core_can_help_with: pilotFormHelp,
-          consent_to_be_contacted: pilotFormConsent ? "Yes" : "No",
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          organisation: form.organisation,
+          role: form.role,
+          number_of_services_sites: form.sites,
+          type_of_service: form.serviceType,
+          current_governance_challenge: form.challenge,
+          what_ordin_core_can_help_with: form.help,
+          consent_to_be_contacted: form.consent ? "Yes" : "No",
         }),
       });
-
       const data = await response.json();
       if (data.success) {
-        setPilotSubmitStatus("success");
-        setPilotFormName("");
-        setPilotFormEmail("");
-        setPilotFormPhone("");
-        setPilotFormOrg("");
-        setPilotFormRole("");
-        setPilotFormServices("");
-        setPilotFormServiceType("");
-        setPilotFormChallenge("");
-        setPilotFormHelp("");
-        setPilotFormConsent(false);
+        setStatus("success");
+        setForm(EMPTY_FORM);
+        setTried(false);
       } else {
-        setPilotSubmitStatus("error");
-        setPilotSubmitError(data.message || "Failed to submit pilot application.");
+        setStatus("error");
+        setSubmitError(data.message || "Failed to submit pilot application.");
       }
-    } catch (err: any) {
-      setPilotSubmitStatus("error");
-      setPilotSubmitError(err.message || "An unexpected network error occurred.");
+    } catch (error) {
+      setStatus("error");
+      setSubmitError(error instanceof Error ? error.message : "An unexpected network error occurred.");
     }
   };
 
+  const current = WORKFLOW_STEPS[step];
+
   return (
-    <div className="min-h-screen bg-[#DDE7EF] dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300">
-
-      {/* ── NAVBAR ── */}
-      <header className="sticky top-0 z-40 border-b border-[#C6D5E1] dark:border-slate-800 bg-[#DDE7EF]/90 dark:bg-slate-900/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5 lg:px-8">
-          <div className="flex items-center gap-3">
-            <img src={logoImg} alt="Ordin Core" className="h-9 w-auto object-contain" />
-          </div>
-
-          <nav className="hidden items-center gap-8 text-sm font-semibold text-slate-600 dark:text-slate-300 lg:flex">
-            {NAV_LINKS.map((item) => (
-              <a
-                key={item.label}
-                href={item.href}
-                className="inline-flex items-center gap-1 transition-colors hover:text-[#28536F] dark:hover:text-[#5B9FD4]"
-              >
-                {item.label}
-                {item.href.startsWith("#") && <ChevronDownIcon className="h-3.5 w-3.5 opacity-55" />}
-              </a>
-            ))}
+    <div className="oc">
+      {/* ── NAVBAR (turns to frosted glass and shrinks on scroll) ── */}
+      <header className="glass">
+        <div className="wrap navin">
+          <a href="#top" aria-label="Ordin Core" className="flex items-center">
+            <img className="logo" src={isDark ? logoDarkImg : logoImg} alt="Ordin Core" />
+          </a>
+          <nav aria-label="Main" className="nav">
+            {NAV_LINKS.map((l) => <a key={l.href} className="navlink" href={l.href}>{l.label}</a>)}
           </nav>
-
-          <div className="flex items-center gap-3">
-            <Button onClick={() => setIsPilotModalOpen(true)} className="rounded-full px-5 py-2 text-sm shadow-md hover:shadow-lg transition">
-              Book a Pilot
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            >
-              <SunIcon
-                className={cn(
-                  "size-4 text-amber-400 transition-all duration-300",
-                  theme === "dark" ? "scale-0 -rotate-90 opacity-0" : "scale-100 rotate-0 opacity-100",
-                )}
-              />
-              <MoonIcon
-                className={cn(
-                  "absolute size-4 text-slate-500 dark:text-slate-300 transition-all duration-300",
-                  theme === "dark" ? "scale-100 rotate-0 opacity-100" : "scale-0 rotate-90 opacity-0",
-                )}
-              />
-              <span className="sr-only">Toggle theme</span>
-            </Button>
+          <div className="flex items-center gap-2.5">
+            <button type="button" className="icon-btn" onClick={() => setTheme(isDark ? "light" : "dark")} aria-label="Toggle theme">
+              {isDark ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
+              )}
+            </button>
+            <a className="navlink px-2 py-2.5 text-[15px] font-medium" href={LOGIN_URL}>Login</a>
+            <a className="btn-p btn-sm" href="#apply">Book a Pilot</a>
           </div>
         </div>
       </header>
 
       <main>
-
         {/* ── HERO ── */}
-        <section className="bg-[#DDE7EF] dark:bg-slate-900 border-b border-[#C6D5E1]/40 dark:border-slate-800">
-          <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-24 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-
-            {/* Left */}
-            <div className="space-y-8">
-              <div className="inline-flex items-center rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/30 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-                Governance Oversight for Care Services
+        <section id="top" className="wrap hero">
+          <div className="hero-grid stg">
+            <div className="flex flex-col gap-6">
+              <span className="chip eyebrow">Governance Oversight for Care Services</span>
+              <h1 className="h1">Governance, Oversight and Assurance for Care Providers</h1>
+              <p className="text-[19px] leading-relaxed text-[color:var(--text-2)] max-w-[560px]">Built for supported living, home care and community mental health services.</p>
+            </div>
+            <div className="flex flex-col gap-[22px]">
+              <ul className="hero-points flex flex-col gap-3.5">
+                <li><span className="chip ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg></span>{HERO_POINTS[0]}</li>
+                <li><span className="chip ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8" /><path d="M14 7h7v7" /></svg></span>{HERO_POINTS[1]}</li>
+                <li><span className="chip ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" /><path d="M9 12l2 2 4-4" /></svg></span>{HERO_POINTS[2]}</li>
+              </ul>
+              <div className="flex flex-wrap items-center gap-3">
+                <a className="btn-p btn-lg" href="#apply">Book a Pilot</a>
+                <a className="btn-s btn-lg" href="#workflow">View Governance Workflow</a>
+                <a href="#apply" className="px-1 py-2.5 text-[15px] font-semibold no-underline">Join Pilot Programme <span className="nudge">→</span></a>
               </div>
+            </div>
+          </div>
 
-              <h1 className="text-4xl font-extrabold leading-[1.12] tracking-tight text-[#172B3B] dark:text-white sm:text-5xl">
-                Governance oversight for care providers
-              </h1>
-
-              <p className="text-base sm:text-lg leading-relaxed text-slate-600 dark:text-slate-300">
-                Built for supported living, home care and community mental health services.
-              </p>
-
-              <div className="flex flex-col gap-3.5">
-                {[
-                  { img: heroSeeWorseImg, text: "See what is getting worse earlier across services" },
-                  { img: heroTrackConcernsImg, text: "Track escalations cleanly with assigned leadership actions" },
-                  { img: heroMaintainStrongerImg, text: "Evidence robust governance to regulators dynamically" },
-                ].map(({ img, text }) => (
-                  <div key={text} className="flex items-center gap-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    <div className="h-9 w-9 shrink-0 rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-white dark:bg-slate-800 p-2 flex items-center justify-center shadow-sm">
-                      <img src={img} alt="" className="h-full w-full object-contain" />
-                    </div>
-                    {text}
+          <div className="mt-14">
+            <div className="seg rv" role="tablist" aria-label="Role views">
+              <span className="pill" style={{ transform: `translateX(${heroTab * 100}%)` }} aria-hidden="true" />
+              {HERO_TABS.map((t, i) => (
+                <button key={t.key} type="button" role="tab" aria-selected={i === heroTab} className={i === heroTab ? "on" : ""} onClick={() => setHeroTab(i)}>{t.label}</button>
+              ))}
+            </div>
+            <div className="relative">
+              <div className="glow" aria-hidden="true" />
+              <figure className="frame tilt" style={{ transformOrigin: "center top" }}>
+                <div className="frame-bar">
+                  <div className="flex items-center gap-3.5">
+                    <div className="dots" aria-hidden="true"><span /><span /><span /></div>
+                    <span className="text-[13px] font-semibold text-[color:var(--text-2)]">Role View: {HERO_TABS[heroTab].key}</span>
                   </div>
-                ))}
-              </div>
+                  <span className="chip flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"><span className="h-1.5 w-1.5 rounded-full bg-current" />Live Session</span>
+                </div>
+                <div className="stack">
+                  {HERO_TABS.map((t, i) => <img key={t.key} className={`shot ${i === heroTab ? "on" : ""}`} src={t.image} alt={t.alt} />)}
+                </div>
+                <figcaption className="flex flex-wrap justify-between gap-4 border-t border-[color:var(--line)] px-[18px] py-3.5 text-sm">
+                  <span className="font-semibold">Interactive Screenshot View</span>
+                  <span className="text-[color:var(--muted)]">Select tabs above to inspect actual platform dashboards</span>
+                </figcaption>
+              </figure>
+            </div>
+            <p className="rv mt-[18px] flex max-w-[760px] items-start gap-2.5 text-sm leading-relaxed text-[color:var(--muted)]">
+              <Check color="var(--accent)" width={2.2} />
+              Designed around real operational workflows and statutory duties within supported living, mental health, and community care environments.
+            </p>
+          </div>
+        </section>
 
-              <div className="flex flex-wrap items-center gap-3.5 pt-2">
-                <Button onClick={() => setIsPilotModalOpen(true)} className="rounded-full gap-2 px-6 py-3.5 shadow-md">
-                  Book a Pilot
-                  <img src={rightArrowImg} alt="" className="h-4 w-4 object-contain invert brightness-200" />
-                </Button>
-                <a href="#workflow" className="inline-flex items-center justify-center gap-2 rounded-full border border-[#C6D5E1] bg-white dark:bg-slate-800 px-6 py-3 text-sm font-bold text-[#172B3B] dark:text-white hover:bg-[#E6EDF2]/30 transition shadow-sm">
-                  View Governance Workflow
-                </a>
-                <button onClick={() => setIsPilotModalOpen(true)} className="text-sm font-bold text-[#28536F] dark:text-emerald-400 hover:underline inline-flex items-center gap-1">
-                  Join Pilot Programme →
+        {/* ── AT A GLANCE (count-up stats) ── */}
+        <section aria-label="Ordin Core at a glance" className="wrap pt-[88px]">
+          <div className="stg grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
+            {STATS.map((s) => (
+              <div key={s.label} className="spot card p-6" onMouseMove={spot}>
+                <div className="stat-num">
+                  {s.prefix && <span className="text-[30px]" aria-hidden="true">{s.prefix}</span>}
+                  <span className="count" style={{ "--to": s.to } as CSSProperties} aria-hidden="true" />
+                  {s.suffix && <span className="text-2xl" aria-hidden="true">{s.suffix}</span>}
+                  <span className="sr">{s.sr}</span>
+                </div>
+                <div className="mt-2.5 text-[15px] text-[color:var(--text-2)]">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── THE FOUR QUESTIONS (line draws across on scroll) ── */}
+        <section id="why" className="wrap pt-28">
+          <h2 className="rv max-w-[640px] text-[clamp(28px,3vw,38px)] font-bold leading-[1.15]">The Four Questions Every Leadership Team Needs Answered</h2>
+          <div className="qwrap">
+            <div className="qline" aria-hidden="true"><span /></div>
+            <ol className="stg grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
+              {FOUR_QUESTIONS.map((item, i) => (
+                <li key={item.q} className="flex flex-col gap-3 pr-4">
+                  <span className="qdot">{i + 1}</span>
+                  <h3 className="mt-2 text-xl font-semibold leading-snug">{item.q}</h3>
+                  <p className="text-[15px] leading-relaxed text-[color:var(--text-2)]">{item.a}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        {/* ── GOVERNANCE PROBLEMS (bento) ── */}
+        <section className="wrap sec">
+          <div className="rv sec-head">
+            <h2 className="h2">Governance Problems Build Quietly</h2>
+            <p className="lead">Most operational failures do not occur overnight. They are the cumulative result of subtle, compounding challenges that develop over weeks and months.</p>
+          </div>
+          <div className="bento stg mt-12">
+            {PROBLEMS.map((p, i) => (
+              <div key={p.title} className="spot flex flex-col gap-2.5 rounded-[18px] border border-[color:var(--line)] p-[26px]" onMouseMove={spot}>
+                {i === 0 && (
+                  <div className="grow mb-[18px] flex h-[150px] items-end gap-2.5 border-b border-[color:var(--line)] px-0.5" aria-hidden="true">
+                    {[18, 26, 34, 48, 66, 92].map((h, j) => (
+                      <span key={h} style={{ height: `${h}%`, background: j === 5 ? "var(--brand)" : j === 4 ? "color-mix(in srgb, var(--brand) 55%, var(--line-strong))" : "var(--line-strong)" }} />
+                    ))}
+                  </div>
+                )}
+                <h3 className={`${i === 0 ? "text-[26px]" : "text-lg"} font-semibold leading-tight`}>{p.title}</h3>
+                <p className="text-[15px] leading-relaxed text-[color:var(--text-2)]">{p.description}</p>
+                <span className="mt-auto pt-2 text-[13px] font-semibold text-[color:var(--accent-ink)]">Addressed by Ordin Core</span>
+              </div>
+            ))}
+          </div>
+          <div className="rv mt-4 flex flex-col gap-[18px] rounded-[18px] bg-[color:var(--accent-soft)] p-7">
+            <h3 className="text-lg font-bold text-[color:var(--accent-ink)]">Fragmented Visibility Disrupts Oversight</h3>
+            <ul className="pill-list stg flex flex-wrap gap-2.5">
+              {FRAGMENTED.map((f) => <li key={f}>{f}</li>)}
+            </ul>
+            <p className="text-base font-semibold">Ordin Core establishes a clean, unified workflow across your services.</p>
+          </div>
+        </section>
+
+        {/* ── HOW IT WORKS (autoplaying steps + matching screenshot) ── */}
+        <section id="workflow" className="band">
+          <div className="wrap sec">
+            <div className="rv sec-head">
+              <h2 className="h2">How Ordin Core Works</h2>
+              <p className="lead">A structured, routine-driven governance loop designed to enforce operational transparency and continuous oversight.</p>
+            </div>
+            <div className="mt-14 flex flex-wrap items-start gap-10">
+              <div className="steps flex min-w-0 flex-[1_1_320px] flex-col gap-2">
+                <div role="tablist" aria-label="Governance loop steps" className="stg flex flex-col gap-2">
+                  {WORKFLOW_STEPS.map((s, i) => (
+                    <button key={s.title} type="button" role="tab" aria-selected={i === step} className={`step ${i === step ? "on" : ""}`}
+                      onClick={() => { setStep(i); setAutoplay(false); }}>
+                      <span className="num">{i + 1}</span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                        <span className="text-[17px] font-semibold">{s.title}</span>
+                        <span className="sbody text-[15px] leading-normal text-[color:var(--band-text-2)]">{s.description}</span>
+                        <span className="sbody text-sm leading-normal text-[color:var(--band-accent)]">{s.example}</span>
+                        {autoplay && i === step && (
+                          <span className="prog" aria-hidden="true">
+                            {/* key restarts the 6s bar for each step; the next step starts when it finishes */}
+                            <span key={step} onAnimationEnd={(e) => { if (e.animationName === "oc-prog") setStep((p) => (p + 1) % WORKFLOW_STEPS.length); }} />
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="auto-btn" onClick={() => setAutoplay((a) => !a)}>
+                  {autoplay
+                    ? <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                    : <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z" /></svg>}
+                  {autoplay ? "Pause autoplay" : "Play autoplay"}
                 </button>
               </div>
 
-              <div className="flex items-start gap-3 rounded-2xl border border-[#C6D5E1]/60 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-4 text-sm text-slate-500 dark:text-slate-400 shadow-sm">
-                <img src={designedToSupportGovernanceImg} alt="" className="h-5 w-5 shrink-0 object-contain mt-0.5" />
-                <p>Designed around real operational workflows and statutory duties within supported living, mental health, and community care environments.</p>
-              </div>
-            </div>
-
-            {/* Right – Interactive Role-based Device Frame Preview */}
-            <div className="space-y-4">
-              {/* Tab Selector */}
-              <div className="flex flex-wrap gap-1 bg-[#E6EDF2]/80 dark:bg-slate-900 p-1.5 rounded-2xl border border-[#C6D5E1]/60 dark:border-slate-800 shadow-inner">
-                {[
-                  { id: "team_leader", label: "Team Leader" },
-                  { id: "registered_manager", label: "Registered Manager" },
-                  { id: "responsible_individual", label: "RI / Nominated" },
-                  { id: "director", label: "Director" },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveHeroTab(tab.id as any)}
-                    className={`flex-1 min-w-[90px] text-center px-2.5 py-2 rounded-xl text-xs font-bold transition duration-200 ${activeHeroTab === tab.id
-                        ? "bg-[#28536F] text-white shadow"
-                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800"
-                      }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Display Area (Device Frame mockup) */}
-              <Card className="overflow-hidden rounded-3xl border border-[#C6D5E1] dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl relative transition-all duration-300">
-                <div className="border-b border-[#C6D5E1]/50 dark:border-slate-800 px-5 py-3.5 bg-slate-50 dark:bg-slate-900 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-3 w-3 rounded-full bg-[#172B3B]/30 dark:bg-slate-700" />
-                    <span className="h-3 w-3 rounded-full bg-[#28536F]/30 dark:bg-slate-700" />
-                    <span className="h-3 w-3 rounded-full bg-emerald-500/30 dark:bg-slate-700" />
-                    <span className="ml-2 text-xs font-bold text-[#172B3B] dark:text-slate-300 capitalize tracking-wide">
-                      Role View: {activeHeroTab.replace("_", " ")}
-                    </span>
+              <figure className="rv sticky-fig flex min-w-0 flex-[999_1_600px] flex-col gap-[18px]">
+                <div className="overflow-hidden rounded-2xl border border-[color:var(--band-line)] bg-[color:var(--surface)]">
+                  <div className="flex items-center justify-between gap-3 border-b border-[color:var(--line)] bg-[color:var(--surface-2)] px-[18px] py-3 text-[color:var(--text)]">
+                    <span className="text-sm font-semibold">{current.output}</span>
+                    <span className="text-xs text-[color:var(--muted)]">{step + 1} / {WORKFLOW_STEPS.length}</span>
                   </div>
-                  <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30">
-                    Live Session
+                  <div className="stack">
+                    {WORKFLOW_STEPS.map((s, i) => <img key={s.output} className={`shot ${i === step ? "on" : ""}`} src={s.image} alt={s.output} />)}
+                  </div>
+                </div>
+                <figcaption className="flex items-start gap-4 pt-1">
+                  <span className="display text-[40px] font-bold leading-[0.9] text-[color:var(--band-accent)]" aria-hidden="true">“</span>
+                  <span className="flex flex-col gap-2">
+                    <span className="text-[17px] font-medium leading-normal">Ordin Core aligns daily activities to weekly reviews, ensuring that critical data is captured and reconstructable.</span>
+                    <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-[color:var(--band-accent)]">Assurance</span>
                   </span>
-                </div>
-
-                <div className="bg-slate-950 relative min-h-[360px] flex items-center justify-center">
-                  <div className="absolute inset-0 w-full h-full p-1 bg-slate-950">
-                    <img
-                      src={
-                        activeHeroTab === "team_leader"
-                          ? roleTeamLeaderImg
-                          : activeHeroTab === "registered_manager"
-                            ? roleRegisteredManagerImg
-                            : activeHeroTab === "responsible_individual"
-                              ? roleResponsibleIndividualImg
-                              : roleDirectorImg
-                      }
-                      alt={`${activeHeroTab} screenshot`}
-                      className="w-full h-full object-cover rounded-xl"
-                    />
-                  </div>
-                </div>
-
-                <div className="px-5 py-3 border-t border-[#C6D5E1]/55 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-sm text-slate-500 flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1 font-semibold text-[#172B3B] dark:text-[#5B9FD4]">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
-                    Interactive Screenshot View
-                  </span>
-                  <span>Select tabs above to inspect actual platform dashboards</span>
-                </div>
-              </Card>
-            </div>
-
-          </div>
-        </section>
-
-        {/* ── THE FOUR QUESTIONS ── */}
-        <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900 border-b border-[#C6D5E1]/40 dark:border-slate-800">
-          <div className="mx-auto max-w-7xl px-6 lg:px-8">
-            <div className="mx-auto max-w-2xl text-center mb-14">
-              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#172B3B] dark:text-white sm:text-4xl">
-                The Four Questions Every Leadership Team Needs Answered
-              </h2>
-            </div>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {FOUR_QUESTIONS.map((item, idx) => (
-                <Card key={item.question} className="p-6 dark:border-slate-800 dark:bg-slate-900 flex flex-col">
-                  <span className="mb-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#172B3B] dark:bg-emerald-600 text-sm font-black text-white shadow">
-                    {idx + 1}
-                  </span>
-                  <h3 className="text-base font-bold text-[#172B3B] dark:text-white mb-2 leading-snug">{item.question}</h3>
-                  <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{item.answer}</p>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── GOVERNANCE PROBLEMS ── */}
-        <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900" id="why">
-          <div className="mx-auto max-w-7xl px-6 lg:px-8">
-            <div className="mx-auto max-w-2xl text-center mb-16">
-              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#172B3B] dark:text-white sm:text-4xl">
-                Governance Problems Build Quietly
-              </h2>
-              <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-400">
-                Most operational failures do not occur overnight. They are the cumulative result of subtle, compounding challenges that develop over weeks and months.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {PROBLEM_CARDS.map((card) => (
-                <Card key={card.title} className="p-6 hover:shadow-lg transition duration-300 dark:border-slate-800 dark:bg-slate-900 flex flex-col justify-between group">
-                  <div>
-                    <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E6EDF2] dark:bg-slate-800 p-2.5 shadow-sm group-hover:scale-105 transition-transform duration-300">
-                      <img src={card.image} alt={card.title} className="h-full w-full object-contain" />
-                    </div>
-                    <h3 className="text-base font-bold text-[#172B3B] dark:text-white mb-2">{card.title}</h3>
-                    <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{card.description}</p>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-[#C6D5E1]/30 dark:border-slate-800 text-sm font-bold text-[#28536F] dark:text-[#5B9FD4]">
-                    Addressed by Ordin Core
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── HOW IT WORKS ── */}
-        <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900 border-y border-[#C6D5E1]/35 dark:border-slate-800" id="workflow">
-          <div className="mx-auto max-w-7xl px-6 lg:px-8">
-            <div className="mx-auto max-w-2xl text-center mb-16">
-              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#172B3B] dark:text-white sm:text-4xl">
-                How Ordin Core Works
-              </h2>
-              <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-400">
-                A structured, routine-driven governance loop designed to enforce operational transparency and continuous oversight.
-              </p>
-            </div>
-
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 items-stretch">
-              {WORKFLOW_STEPS.map((step) => (
-                <Card key={step.title} className="p-5 dark:border-slate-800 dark:bg-slate-800/60 flex flex-col justify-between shadow-sm relative">
-                  <div>
-                    <div className="flex items-start justify-between mb-4">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#172B3B] dark:bg-emerald-600 text-sm font-black text-white shadow">
-                        {step.number}
-                      </span>
-                      <div className="h-9 w-9 p-1 bg-white dark:bg-slate-900 rounded-lg shadow-sm flex items-center justify-center border border-[#C6D5E1]/30 dark:border-slate-850">
-                        <img src={step.image} alt={step.title} className="h-full w-full object-contain" />
-                      </div>
-                    </div>
-                    <h3 className="text-sm font-bold text-[#172B3B] dark:text-white mb-2 leading-tight">{step.title}</h3>
-                    <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400 mb-4">{step.description}</p>
-                  </div>
-                  <p className="text-sm leading-relaxed text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-700/60 pt-3 italic">
-                    {step.example}
-                  </p>
-                </Card>
-              ))}
-
-              {/* Quote card */}
-              <Card key="quote" className="p-5 bg-[#E6EDF2] dark:bg-slate-900 border border-[#C6D5E1] dark:border-emerald-800/40 flex flex-col justify-between shadow">
-                <div>
-                  <p className="text-3xl font-serif text-[#28536F] dark:text-emerald-500 leading-none mb-2">"</p>
-                  <p className="text-sm font-bold text-[#172B3B] dark:text-slate-200 leading-relaxed">
-                    Ordin Core aligns daily activities to weekly reviews, ensuring that critical data is captured and reconstructable.
-                  </p>
-                </div>
-                <div className="pt-4 flex justify-between items-end border-t border-[#C6D5E1]/50 dark:border-slate-800">
-                  <img src={designedToSupportGovernanceImg} alt="" className="h-10 w-auto object-contain opacity-90" />
-                  <span className="text-sm uppercase tracking-wider font-bold text-[#28536F] dark:text-emerald-400">Assurance</span>
-                </div>
-              </Card>
+                </figcaption>
+              </figure>
             </div>
           </div>
         </section>
 
         {/* ── BUILT FOR ── */}
-        <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900" id="audience">
-          <div className="mx-auto max-w-7xl px-6 lg:px-8">
-            <div className="mx-auto max-w-2xl text-center mb-16">
-              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#172B3B] dark:text-white sm:text-4xl">
-                Built for Operational & Governance Leadership
-              </h2>
-              <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-400">
-                Ordin Core supports every layer of care governance with tailored views, escalations, and insights.
-              </p>
-            </div>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
-              {AUDIENCE_CARDS.map((card) => (
-                <Card key={card.title} className="p-6 text-center hover:shadow-md transition dark:border-slate-800 dark:bg-slate-900 flex flex-col justify-between">
-                  <div>
-                    <div className="mx-auto mb-4 h-12 w-12 rounded-2xl bg-[#E6EDF2] dark:bg-slate-800 p-2.5 flex items-center justify-center shadow-sm">
-                      <img src={card.image} alt={card.title} className="h-full w-full object-contain" />
-                    </div>
-                    <h3 className="text-sm font-bold text-[#172B3B] dark:text-white mb-2">{card.title}</h3>
-                    <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{card.description}</p>
-                  </div>
-                  <div className="mt-4 text-sm uppercase font-bold tracking-wider text-[#28536F] dark:text-[#5B9FD4]">
-                    Dedicated View
-                  </div>
-                </Card>
-              ))}
-            </div>
+        <section id="audience" className="wrap sec">
+          <div className="rv sec-head">
+            <h2 className="h2">Built for Operational &amp; Governance Leadership</h2>
+            <p className="lead">Ordin Core supports every layer of care governance with tailored views, escalations, and insights.</p>
           </div>
-        </section>
-
-        {/* ── 4-COLUMN COMPARISON ── */}
-        <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900 border-t border-[#C6D5E1]/30 dark:border-slate-800" id="resources">
-          <div className="mx-auto max-w-7xl px-6 lg:px-8">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-
-              {/* Col 1 – Fragmented Visibility */}
-              <Card className="p-6 space-y-4 dark:border-slate-800 dark:bg-slate-800/50">
-                <h3 className="text-sm font-black text-[#172B3B] dark:text-white leading-snug">
-                  Fragmented Visibility Disrupts Oversight
-                </h3>
-                <ul className="space-y-2.5">
-                  {["Different shifts and team rotations", "Multiple services, locations and branches", "Verbal updates and WhatsApp streams", "Siloed databases and custom spreadsheets", "Varying levels of management experience", "Inspection stress due to poor audit trails"].map((item) => (
-                    <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-350">
-                      <CheckBadgeIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <p className="text-sm font-bold text-[#28536F] dark:text-[#5B9FD4]">
-                  Ordin Core establishes a clean, unified workflow across your services.
-                </p>
-                <div className="flex gap-2 pt-1">
-                  <img src={problemDifficultyOversightImg} alt="" className="h-14 w-14 rounded-xl border border-[#C6D5E1]/55 dark:border-slate-700 object-contain bg-white dark:bg-slate-800 p-1.5 shadow-sm" />
-                  <img src={governanceDiff2Img} alt="" className="h-14 w-14 rounded-xl border border-[#C6D5E1]/55 dark:border-slate-700 object-contain bg-white dark:bg-slate-800 p-1.5 shadow-sm" />
-                </div>
-              </Card>
-
-              {/* Col 2 – Not Another CMS */}
-              <Card className="p-6 space-y-4 dark:border-slate-800 dark:bg-slate-800/50">
-                <h3 className="text-sm font-black text-[#172B3B] dark:text-white leading-snug">
-                  Not Another Care Management System
-                </h3>
-                <div>
-                  <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-2">Most platforms focus on:</p>
-                  <ul className="space-y-2">
-                    {["Daily care logs & charts", "Medication (eMAR) logs", "Staff shift rostering", "Basic incident capture", "Folders for static policies"].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-350">
-                        <XMarkIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="border-t border-[#C6D5E1]/20 dark:border-slate-700/60 pt-3">
-                  <p className="text-sm font-bold text-[#28536F] dark:text-emerald-400 mb-2">Ordin Core focuses on:</p>
-                  <ul className="space-y-2">
-                    {["Governance visibility", "Worsening risk trajectories", "Active escalation tracking", "Assurance & rhythm oversight", "Regulatory inspection readiness"].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-sm text-slate-700 dark:text-white font-medium">
-                        <CheckBadgeIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </Card>
-
-              {/* Col 3 – Designed for Operational Use */}
-              <Card className="p-6 space-y-4 dark:border-slate-800 dark:bg-slate-800/50">
-                <h3 className="text-sm font-black text-[#172B3B] dark:text-white leading-snug">
-                  Designed for Operational Use
-                </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                  We empower leadership teams to enforce compliance and oversight without overwhelming staff with paperwork.
-                </p>
-                <div>
-                  <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-2">Our Workflow:</p>
-                  <ul className="space-y-2">
-                    {["Rapid 3-minute inputs", "Visual traffic-light summaries", "Action and ownership logs", "Clean role delegation", "Structured reviews"].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-350 font-medium">
-                        <CheckBadgeIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="border-t border-[#C6D5E1]/20 dark:border-slate-700/60 pt-3">
-                  <p className="text-sm font-bold text-slate-450 dark:text-slate-500 mb-2">Avoids:</p>
-                  <ul className="space-y-2">
-                    {["Duplicate log entries", "Lengthy essay formats", "Over-complicated software", "Administrative bloat"].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-sm text-slate-500 dark:text-slate-500">
-                        <XMarkIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </Card>
-
-              {/* Col 4 – Assurance Outcomes */}
-              <Card className="p-6 space-y-4 dark:border-slate-800 dark:bg-slate-800/50">
-                <h3 className="text-sm font-black text-[#172B3B] dark:text-white leading-snug">
-                  Uncompromised Oversight & Assurance
-                </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Never worry about gaps in your governance audits during an inspection.
-                </p>
-                <ul className="space-y-2">
-                  {["A continuous audit trail of decisions", "Reconstructable evidence for inspections", "Clean delegation and task handovers", "Immediate visibility of neglected houses", "Structured support for new managers"].map((item) => (
-                    <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-350">
-                      <CheckBadgeIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <div>
-                  <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">This supports:</p>
-                  <ul className="space-y-2">
-                    {["Structured governance review", "Operational assurance", "Leadership continuity", "Internal oversight", "Inspection preparation"].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
-                        <CheckBadgeIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </Card>
-            </div>
-          </div>
-        </section>
-
-        {/* ── EXAMPLE OUTPUTS ── */}
-        <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900">
-          <div className="mx-auto max-w-7xl px-6 lg:px-8">
-            <div className="mx-auto max-w-2xl text-center mb-16">
-              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#172B3B] dark:text-white sm:text-4xl">
-                Example Governance Outputs
-              </h2>
-              <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-400">
-                Inspect high-fidelity previews of the key oversight screens compiled automatically by Ordin Core. Click any screen to open a detailed high-resolution interactive review.
-              </p>
-            </div>
-
-            <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 items-stretch">
-              {GOVERNANCE_OUTPUTS.map((output) => (
-                <div
-                  key={output.name}
-                  onClick={() => setActiveOutputDetail(output)}
-                  className="text-center group cursor-pointer flex flex-col justify-between"
-                >
-                  <div className="mb-3 overflow-hidden rounded-2xl border border-[#C6D5E1] dark:border-slate-800 bg-[#DDE7EF] dark:bg-slate-900 hover:border-[#28536F] dark:hover:border-slate-600 transition shadow-sm h-36 flex items-center justify-center relative">
-                    <img
-                      src={output.image}
-                      alt={output.label}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-[#172B3B]/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                      <span className="bg-white/95 dark:bg-slate-900/95 text-[#172B3B] dark:text-white text-sm font-bold px-3 py-1.5 rounded-full shadow border border-brand-border">
-                        Inspect Page
-                      </span>
-                    </div>
-                  </div>
-                  <p className="text-sm font-bold text-[#172B3B] dark:text-slate-300 group-hover:text-[#28536F] transition">
-                    {output.label}
-                  </p>
-                </div>
-              ))}
-
-              <div className="rounded-3xl bg-slate-950 border border-slate-800 p-5 flex flex-col items-center justify-center text-center gap-4 shadow-xl">
-                <img src={designedToSupportGovernanceImg} alt="" className="h-10 w-10 object-contain opacity-80" />
-                <div>
-                  <p className="text-sm font-bold text-white leading-tight mb-1">View Real Reviews</p>
-                  <p className="text-sm text-slate-500">Examine how data is presented</p>
-                </div>
-                <Button
-                  onClick={() => setIsPilotModalOpen(true)}
-                  className="w-full text-sm rounded-full py-2.5 bg-emerald-500 text-slate-950 hover:bg-emerald-400 font-bold transition"
-                >
-                  Request Live Pilot →
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ── PILOT PROGRAMME ── */}
-        <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900 border-t border-[#C6D5E1]/35 dark:border-slate-800" id="pilot">
-          <div className="mx-auto max-w-7xl px-6 lg:px-8">
-            <div className="grid gap-12 lg:grid-cols-2 items-start">
-
-              {/* Left */}
-              <div className="space-y-8">
-                <div>
-                  <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#172B3B] dark:text-white sm:text-4xl">
-                    Join the Ordin Core Pilot Programme
-                  </h2>
-                  <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-350">
-                    We are selecting a limited cohort of supported living, mental health, and care providers in the UK to implement and refine governance structures inside real operational services.
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-bold text-[#172B3B] dark:text-white mb-5">Participating providers receive:</p>
-                  <div className="grid grid-cols-5 gap-3">
-                    {PILOT_BENEFITS.map((benefit) => (
-                      <div key={benefit.label} className="flex flex-col items-center gap-2.5 text-center">
-                        <div className="h-12 w-12 rounded-2xl border border-[#C6D5E1] dark:border-slate-800 bg-white dark:bg-slate-800 p-2.5 flex items-center justify-center shadow-sm">
-                          <img src={benefit.image} alt={benefit.label} className="h-full w-full object-contain" />
-                        </div>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 leading-snug font-semibold">{benefit.label}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <Button
-                  onClick={() => setIsPilotModalOpen(true)}
-                  className="rounded-full gap-2 px-7 py-4 text-sm shadow-md hover:shadow-lg"
-                >
-                  Apply for Pilot Access
-                  <img src={rightArrowImg} alt="" className="h-4 w-4 object-contain invert brightness-200" />
-                </Button>
-              </div>
-
-              {/* Right */}
-              <Card className="p-8 dark:border-slate-800 dark:bg-slate-800/80 shadow-xl border border-[#C6D5E1]/60">
-                <h3 className="text-lg font-bold text-[#172B3B] dark:text-white mb-3">
-                  Governance is More Than Compliance Auditing
-                </h3>
-                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-450 mb-6">
-                  True governance lies in maintaining immediate cross-branch awareness of trends, and tracking leadership decisions properly from signal to closure:
-                </p>
-                <ul className="space-y-3.5">
-                  {[
-                    "Catching repeated shift concerns before they compound",
-                    "Logging worsening risk trajectories across separate houses",
-                    "Ensuring escalations always have clear ownership & actions",
-                    "Validating whether corrective measures are actually working over time",
-                  ].map((item) => (
-                    <li key={item} className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-350 font-medium">
-                      <CheckBadgeIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <div className="mt-8 border-t border-[#C6D5E1]/20 dark:border-slate-700 pt-6 flex items-start gap-4">
-                  <img src={governanceIsImg} alt="" className="h-10 w-10 shrink-0 object-contain opacity-85" />
-                  <p className="text-sm text-slate-400 dark:text-slate-500 leading-relaxed">
-                    Ordin Core is engineered as an active, daily discipline that brings team leaders, managers, and directors into a robust, synchronized assurance loop.
-                  </p>
-                </div>
-              </Card>
-
-            </div>
-          </div>
-        </section>
-
-        {/* ── PILOT STRUCTURE & PRICING ──
-             Hidden for now (pricing / pilot commercial). Kept in the code so it can be
-             re-enabled later by changing `{false && (` back to `{(`. */}
-        {false && (
-        <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900 border-t border-[#C6D5E1]/35 dark:border-slate-800" id="pricing">
-          <div className="mx-auto max-w-7xl px-6 lg:px-8">
-
-            {/* Pilot Structure */}
-            <div className="mx-auto max-w-2xl text-center mb-12">
-              <span className="inline-flex items-center rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/30 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-                12-Week Early Adopter Pilot
-              </span>
-              <h2 className="mt-5 text-3xl font-extrabold tracking-tight text-[#172B3B] dark:text-white sm:text-4xl">
-                Pilot Structure
-              </h2>
-              <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-400">
-                A structured 12-week programme to embed governance rhythm inside real operational services.
-              </p>
-            </div>
-
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-20">
-              {PILOT_TIMELINE.map((item) => (
-                <Card key={item.phase} className="p-6 dark:border-slate-800 dark:bg-slate-900 flex flex-col">
-                  <p className="text-sm font-black uppercase tracking-wider text-[#28536F] dark:text-[#5B9FD4] mb-2">{item.phase}</p>
-                  <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 font-semibold">{item.label}</p>
-                </Card>
-              ))}
-            </div>
-
-            {/* Included / Guarantee / Expectations */}
-            <div className="grid gap-6 md:grid-cols-3">
-              <Card className="p-6 dark:border-slate-800 dark:bg-slate-900">
-                <h3 className="text-sm font-black text-[#172B3B] dark:text-white mb-4">Included in Every Pilot</h3>
-                <ul className="space-y-2.5">
-                  {PILOT_INCLUDED.map((item) => (
-                    <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
-                      <CheckBadgeIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-              <Card className="p-6 dark:border-slate-800 dark:bg-slate-900">
-                <h3 className="text-sm font-black text-[#172B3B] dark:text-white mb-4">Pilot Guarantee</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">Complete the full 12-week pilot and retain:</p>
-                <ul className="space-y-2.5">
-                  {["Founder pricing for 12 months", "Priority onboarding into future releases", "Early access to new governance modules"].map((item) => (
-                    <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
-                      <CheckBadgeIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-              <Card className="p-6 dark:border-slate-800 dark:bg-slate-900">
-                <h3 className="text-sm font-black text-[#172B3B] dark:text-white mb-4">Pilot Expectations</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">Pilot providers should:</p>
-                <ul className="space-y-2.5">
-                  {["Actively use the platform", "Attend review sessions", "Provide operational feedback", "Participate in governance evaluation"].map((item) => (
-                    <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
-                      <CheckBadgeIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            </div>
-          </div>
-        </section>
-        )}
-
-        {/* ── PRICING ──
-             Approved rates from Ordin_Core_Supported_Living_and_Homecare_Pricing_Schedules
-             (22 Oct 2026). Monthly GBP, tax shown separately at checkout. These replace the
-             earlier £29/£79/£149 placeholder tiers, which were never approved rates.
-             Hidden for now (25 Oct 2026). Kept in the code so it can be re-enabled later
-             by changing `{false && (` back to `{(`. */}
-        {false && (
-        <section className="py-20 bg-white dark:bg-slate-950 border-t border-[#C6D5E1]/35 dark:border-slate-800" id="pricing">
-          <div className="mx-auto max-w-5xl px-6 lg:px-8">
-            <div className="mx-auto max-w-2xl text-center mb-14">
-              <span className="inline-flex items-center rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/30 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-                Pricing
-              </span>
-              <h2 className="mt-5 text-3xl font-extrabold tracking-tight text-[#172B3B] dark:text-white sm:text-4xl">
-                Simple, per-service pricing
-              </h2>
-              <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-400">
-                Product charges for the governance platform, not care-delivery fees. All bands include the same core governance functions. Prices shown are monthly, before tax.
-              </p>
-            </div>
-
-            <div className="grid gap-8 lg:grid-cols-2">
-              {/* Supported living */}
-              <Card className="p-7 dark:border-slate-800 dark:bg-slate-900">
-                <h3 className="text-lg font-black text-[#172B3B] dark:text-white mb-1">Supported living</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Priced per address, by agreed operational capacity — not daily occupancy.</p>
-                <div className="overflow-hidden rounded-xl border border-[#C6D5E1] dark:border-slate-800">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-[#DDE7EF] dark:bg-slate-800 text-left text-[#172B3B] dark:text-white">
-                        <th className="px-4 py-2.5 font-bold">Capacity</th>
-                        <th className="px-4 py-2.5 font-bold">Monthly site price</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#C6D5E1]/60 dark:divide-slate-800">
-                      {[
-                        ["1–6 clients", "£100"],
-                        ["7–10 clients", "£125"],
-                        ["11–15 clients", "£150"],
-                        ["16+ clients", "Individual quotation"],
-                      ].map(([band, price]) => (
-                        <tr key={band} className="text-slate-700 dark:text-slate-300">
-                          <td className="px-4 py-2.5">{band}</td>
-                          <td className="px-4 py-2.5 font-semibold text-[#172B3B] dark:text-white">{price}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="mt-4 text-xs font-bold uppercase tracking-wider text-[#28536F] dark:text-[#5B9FD4]">Multi-site discount</p>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Sites 1–3: full price · Sites 4–6: 5% off · Sites 7–10: 10% off. Beyond 10 active sites, individual quotation.</p>
-              </Card>
-
-              {/* Homecare */}
-              <Card className="p-7 dark:border-slate-800 dark:bg-slate-900">
-                <h3 className="text-lg font-black text-[#172B3B] dark:text-white mb-1">Homecare</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Priced on provider-wide active client count, calculated once across all branches.</p>
-                <div className="overflow-hidden rounded-xl border border-[#C6D5E1] dark:border-slate-800">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-[#DDE7EF] dark:bg-slate-800 text-left text-[#172B3B] dark:text-white">
-                        <th className="px-4 py-2.5 font-bold">Clients (provider-wide)</th>
-                        <th className="px-4 py-2.5 font-bold">Rate</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#C6D5E1]/60 dark:divide-slate-800">
-                      {[
-                        ["First 25 clients", "£100/mo minimum, includes 1st branch"],
-                        ["Clients 26–50", "+£2 per client"],
-                        ["Clients 51–200", "+£1.50 per client"],
-                        ["Clients 201–300", "+£1.25 per client"],
-                        ["Above 300", "Individual quotation"],
-                      ].map(([band, price]) => (
-                        <tr key={band} className="text-slate-700 dark:text-slate-300">
-                          <td className="px-4 py-2.5">{band}</td>
-                          <td className="px-4 py-2.5 font-semibold text-[#172B3B] dark:text-white">{price}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="mt-4 text-xs font-bold uppercase tracking-wider text-[#28536F] dark:text-[#5B9FD4]">Additional branches</p>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">£25/month per additional branch beyond the first. E.g. 80 clients across 3 branches = £245/month.</p>
-              </Card>
-            </div>
-
-            <p className="mt-10 text-center text-xs text-slate-500 dark:text-slate-500">
-              One provider running both service types receives a single invoice with separate supported-living and homecare lines. Supported-living multi-site discounts do not apply to homecare. <a href="#" className="underline hover:text-[#28536F] dark:hover:text-[#5B9FD4]">See full pricing schedule</a>.
-            </p>
-          </div>
-        </section>
-        )}
-
-        {/* ── FAQ ── */}
-        <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900 border-t border-[#C6D5E1]/35 dark:border-slate-800" id="faq">
-          <div className="mx-auto max-w-3xl px-6 lg:px-8">
-            <div className="text-center mb-14">
-              <h2 className="text-3xl font-extrabold tracking-tight text-[#172B3B] dark:text-white sm:text-4xl">
-                Frequently Asked Questions
-              </h2>
-            </div>
-            <div className="space-y-4">
-              {FAQ_ITEMS.map((item) => (
-                <Card key={item.q} className="p-6 dark:border-slate-800 dark:bg-slate-900">
-                  <h3 className="text-base font-bold text-[#172B3B] dark:text-white mb-2">{item.q}</h3>
-                  <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{item.a}</p>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-
-      </main>
-
-      {/* ── FOOTER ── */}
-      <footer className="bg-[#DDE7EF] text-slate-700 border-t border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-900" id="footer">
-        <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
-          <div className="grid grid-cols-2 gap-10 md:grid-cols-3 lg:grid-cols-5 mb-14">
-            {/* Brand */}
-            <div className="col-span-2 md:col-span-3 lg:col-span-2 space-y-4">
-              <div className="flex items-center gap-3">
-                <img src={logoImg} alt="Ordin Core" className="h-9 w-auto object-contain rounded-md bg-white/90 px-2 py-1" />
-              </div>
-              <p className="text-sm leading-relaxed max-w-xs text-slate-500">
-                Structured operational governance and assurance loops for supported living, community, and care services.
-              </p>
-              <div className="space-y-1.5 pt-2 text-sm">
-                <a href="mailto:support@ordincore.co.uk" className="block text-slate-400 hover:text-white transition-colors font-medium">
-                  support@ordincore.co.uk
-                </a>
-                <a href="mailto:support@ordincore.co.uk" className="block text-slate-400 hover:text-white transition-colors font-medium">
-                  support@ordincore.co.uk — Pilot enquiries
-                </a>
-              </div>
-            </div>
-
-            {FOOTER_LINKS.map((section) => (
-              <div key={section.title} className="space-y-4">
-                <p className="text-sm font-black uppercase tracking-widest text-slate-200">{section.title}</p>
-                <div className="space-y-2">
-                  {section.links.map((link) => {
-                    const href =
-                      link === "Pilot Programme" ? "https://work.ordincore.co.uk"
-                      : link === "Privacy Policy" ? "/privacy/"
-                      : link === "Data Security" ? "/data-security.html"
-                      : link === "Terms & Conditions" ? "/terms-of-service.html"
-                      : "#";
-                    return (
-                      <a
-                        key={link}
-                        href={href}
-                        className="block text-sm text-slate-500 transition-colors hover:text-white font-medium"
-                      >
-                        {link}
-                      </a>
-                    );
-                  })}
-                </div>
+          <div className="stg mt-10 overflow-hidden rounded-[20px] border border-[color:var(--line)] bg-[color:var(--surface)]">
+            {AUDIENCE.map((a) => (
+              <div key={a.title} className="row">
+                <h3 className="flex-[1_1_260px] text-lg font-semibold leading-snug">{a.title}</h3>
+                <p className="flex-[2_1_380px] text-[15px] leading-relaxed text-[color:var(--text-2)]">{a.description}</p>
+                <a href="#top" className="flex-none text-sm font-semibold no-underline">Dedicated View <span className="nudge">→</span></a>
               </div>
             ))}
           </div>
+        </section>
 
-          <div className="border-t border-slate-900 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-600 font-medium">
-            <p>© 2026 Ordin Core Inc. All rights reserved.</p>
-            <div className="flex gap-4">
-              <a href="/privacy/" className="hover:text-slate-400">Privacy Policy</a>
-              <a href="/data-security.html" className="hover:text-slate-400">Data Security</a>
-              <a href="/terms-of-service.html" className="hover:text-slate-400">Terms of Service</a>
+        {/* ── NOT ANOTHER CARE MANAGEMENT SYSTEM ── */}
+        <section className="border-y border-[color:var(--line)] bg-[color:var(--surface-2)]">
+          <div className="wrap sec flex flex-col gap-14">
+            <div className="flex flex-col gap-7">
+              <h2 className="rv h2">Not Another Care Management System</h2>
+              <div className="stg grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
+                <div className="spot flex flex-col gap-4 rounded-2xl border border-[color:var(--line)] p-7" onMouseMove={spot}>
+                  <span className="text-[15px] font-bold text-[color:var(--muted)]">Most platforms focus on:</span>
+                  <ul className="flex flex-col gap-3 text-base text-[color:var(--text-2)]">{MOST_PLATFORMS.map((x) => <li key={x}>{x}</li>)}</ul>
+                </div>
+                <div className="spot flex flex-col gap-4 rounded-2xl border-2 border-[color:var(--brand)] p-7" onMouseMove={spot}>
+                  <span className="text-[15px] font-bold text-[color:var(--accent-ink)]">Ordin Core focuses on:</span>
+                  <ul className="flex flex-col gap-3 text-base font-semibold">{ORDIN_FOCUS.map((x) => <li key={x} className="flex items-center gap-2.5"><Check width={2.6} />{x}</li>)}</ul>
+                </div>
+              </div>
+            </div>
+            <div className="stg grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
+              <div className="spot flex flex-col gap-4 rounded-2xl border border-[color:var(--line)] p-7" onMouseMove={spot}>
+                <h3 className="text-[22px] font-bold">Designed for Operational Use</h3>
+                <p className="text-base leading-relaxed text-[color:var(--text-2)]">We empower leadership teams to enforce compliance and oversight without overwhelming staff with paperwork.</p>
+                <div className="mt-1 grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]">
+                  <div className="flex flex-col gap-2.5"><span className="text-sm font-bold">Our Workflow:</span>{OUR_WORKFLOW.map((x) => <span key={x} className="text-[15px] text-[color:var(--text-2)]">✓ {x}</span>)}</div>
+                  <div className="flex flex-col gap-2.5"><span className="text-sm font-bold">Avoids:</span>{AVOIDS.map((x) => <span key={x} className="text-[15px] text-[color:var(--muted)]">✕ {x}</span>)}</div>
+                </div>
+              </div>
+              <div className="spot flex flex-col gap-4 rounded-2xl border border-[color:var(--line)] p-7" onMouseMove={spot}>
+                <h3 className="text-[22px] font-bold">Uncompromised Oversight &amp; Assurance</h3>
+                <p className="text-base leading-relaxed text-[color:var(--text-2)]">Never worry about gaps in your governance audits during an inspection.</p>
+                <div className="mt-1 grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]">
+                  <div className="flex flex-col gap-2.5">{OVERSIGHT.map((x) => <span key={x} className="text-[15px] text-[color:var(--text-2)]">✓ {x}</span>)}</div>
+                  <div className="flex flex-col gap-2.5"><span className="text-sm font-bold">This supports:</span>{SUPPORTS.map((x) => <span key={x} className="text-[15px] text-[color:var(--text-2)]">{x}</span>)}</div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </footer>
+        </section>
 
-      {/* ── BOOK A DEMO MODAL ── */}
-      {isDemoModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-[#C6D5E1] dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-8 space-y-6">
-            <button
-              onClick={() => setIsDemoModalOpen(false)}
-              className="absolute top-4 right-4 h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
-              aria-label="Close modal"
-            >
-              <XMarkIcon className="h-5 w-5" />
-            </button>
-
-            <div className="space-y-2">
-              <h3 className="text-2xl font-black text-[#172B3B] dark:text-white">
-                Book an Ordin Core Demo
-              </h3>
-              <p className="text-sm text-slate-500 dark:text-slate-450">
-                Experience how Ordin Core can transform cross-house operational oversight for your care services.
-              </p>
+        {/* ── PILOT PROGRAMME + INLINE APPLICATION FORM ── */}
+        <section id="pilot" className="wrap sec grid items-start gap-12 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
+          <div className="flex flex-col gap-6">
+            <div className="rv flex flex-col gap-6">
+              <h2 className="h2">Join the Ordin Core Pilot Programme</h2>
+              <p className="lead">We are selecting a limited cohort of supported living, mental health, and care providers in the UK to implement and refine governance structures inside real operational services.</p>
+              <span className="text-[15px] font-bold">Participating providers receive:</span>
+              <ul className="stg grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
+                {PILOT_BENEFITS.map((b) => (
+                  <li key={b} className="spot flex items-center gap-2.5 rounded-xl border border-[color:var(--line)] px-4 py-3.5 text-[15px] font-medium" onMouseMove={spot}><Check />{b}</li>
+                ))}
+              </ul>
             </div>
-
-            {demoSubmitStatus === "success" ? (
-              <div className="text-center py-6 space-y-4">
-                <div className="mx-auto h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                  <CheckBadgeIcon className="h-7 w-7" />
-                </div>
-                <h4 className="text-lg font-bold text-slate-950 dark:text-white">Request Submitted!</h4>
-                <p className="text-sm text-slate-500 dark:text-slate-450">
-                  Thank you for your interest. A member of our team will contact you shortly to schedule your demo.
-                </p>
-                <Button onClick={() => { setIsDemoModalOpen(false); setDemoSubmitStatus("idle"); }} className="w-full">
-                  Close Window
-                </Button>
-              </div>
-            ) : (
-              <form onSubmit={handleDemoSubmit} className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    required
-                    placeholder="Jane Smith"
-                    value={demoFormName}
-                    onChange={(e) => setDemoFormName(e.target.value)}
-                    className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      required
-                      placeholder="you@company.com"
-                      value={demoFormEmail}
-                      onChange={(e) => setDemoFormEmail(e.target.value)}
-                      className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      required
-                      placeholder="e.g. +44 7123 456789"
-                      value={demoFormPhone}
-                      onChange={(e) => setDemoFormPhone(e.target.value)}
-                      className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Organisation Name
-                  </label>
-                  <input
-                    type="text"
-                    name="organisation"
-                    required
-                    placeholder="Your organisation"
-                    value={demoFormOrg}
-                    onChange={(e) => setDemoFormOrg(e.target.value)}
-                    className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Role
-                    </label>
-                    <input
-                      type="text"
-                      name="role"
-                      required
-                      placeholder="e.g. Registered Manager"
-                      value={demoFormRole}
-                      onChange={(e) => setDemoFormRole(e.target.value)}
-                      className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Number of Services / Sites
-                    </label>
-                    <input
-                      type="text"
-                      name="number_of_services_sites"
-                      required
-                      placeholder="e.g. 5"
-                      value={demoFormServices}
-                      onChange={(e) => setDemoFormServices(e.target.value)}
-                      className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Type of Service
-                    </label>
-                    <select
-                      name="type_of_service"
-                      required
-                      value={demoFormServiceType}
-                      onChange={(e) => setDemoFormServiceType(e.target.value)}
-                      className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                    >
-                      <option value="">Select…</option>
-                      <option value="Supported Living">Supported Living</option>
-                      <option value="Mental Health Services">Mental Health Services</option>
-                      <option value="Domiciliary & Community Care">Domiciliary &amp; Community Care</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Preferred Contact Method
-                    </label>
-                    <select
-                      name="preferred_contact_method"
-                      required
-                      value={demoFormContactMethod}
-                      onChange={(e) => setDemoFormContactMethod(e.target.value)}
-                      className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                    >
-                      <option value="Email">Email</option>
-                      <option value="Phone">Phone</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Message
-                  </label>
-                  <textarea
-                    name="message"
-                    required
-                    rows={4}
-                    value={demoFormMessage}
-                    onChange={(e) => setDemoFormMessage(e.target.value)}
-                    className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                  />
-                </div>
-
-                {demoSubmitStatus === "error" && (
-                  <p className="text-xs text-red-500 font-semibold">{demoSubmitError || "Failed to submit. Please try again."}</p>
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={demoSubmitStatus === "submitting"}
-                  className="w-full rounded-xl bg-[#28536F] hover:bg-[#172B3B] text-white flex items-center justify-center gap-2 py-3 shadow"
-                >
-                  {demoSubmitStatus === "submitting" ? "Sending Request..." : "Request a Demo"}
-                </Button>
-              </form>
-            )}
+            <div className="rv band flex flex-col gap-[18px] rounded-[20px] p-8">
+              <h3 className="text-[22px] font-bold leading-tight">Governance is More Than Compliance Auditing</h3>
+              <p className="text-base leading-relaxed text-[color:var(--band-text-2)]">True governance lies in maintaining immediate cross-branch awareness of trends, and tracking leadership decisions properly from signal to closure:</p>
+              <ul className="flex flex-col gap-3">
+                {MORE_THAN_COMPLIANCE.map((x) => (
+                  <li key={x} className="flex gap-3 text-[15px] leading-normal"><span className="mt-[7px] h-2 w-2 flex-none rounded-full bg-[color:var(--band-accent)]" />{x}</li>
+                ))}
+              </ul>
+              <p className="border-t border-[color:var(--band-line)] pt-[18px] text-[15px] leading-relaxed text-[color:var(--band-text-2)]">Ordin Core is engineered as an active, daily discipline that brings team leaders, managers, and directors into a robust, synchronized assurance loop.</p>
+            </div>
           </div>
-        </div>
-      )}
 
-      {/* ── JOIN PILOT PROGRAMME MODAL ── */}
-      {isPilotModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-[#C6D5E1] dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-8 space-y-6">
-            <button
-              onClick={() => setIsPilotModalOpen(false)}
-              className="absolute top-4 right-4 h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
-              aria-label="Close modal"
-            >
-              <XMarkIcon className="h-5 w-5" />
-            </button>
-
-            <div className="space-y-2">
-              <h3 className="text-2xl font-black text-[#172B3B] dark:text-white">
-                Join the Ordin Core Pilot Programme
-              </h3>
-              <p className="text-sm text-slate-500 dark:text-slate-450">
-                Tell us about your service and the governance challenges you'd like Ordin Core to help with.
-              </p>
-            </div>
-
-            {pilotSubmitStatus === "success" ? (
-              <div className="text-center py-6 space-y-4">
-                <div className="mx-auto h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                  <CheckBadgeIcon className="h-7 w-7" />
-                </div>
-                <h4 className="text-lg font-bold text-slate-950 dark:text-white">Application Submitted!</h4>
-                <p className="text-sm text-slate-500 dark:text-slate-450">
-                  Thank you for your interest in the pilot programme. A member of our team will be in touch shortly.
-                </p>
-                <Button onClick={() => { setIsPilotModalOpen(false); setPilotSubmitStatus("idle"); }} className="w-full">
-                  Close Window
-                </Button>
+          <div id="apply" className="rv sticky top-24 rounded-[20px] border border-[color:var(--line)] bg-[color:var(--surface)] p-8">
+            {status === "success" ? (
+              <div role="status" className="flex flex-col items-center gap-3.5 px-2 py-10 text-center">
+                <span className="chip pop-in flex h-16 w-16 items-center justify-center rounded-full">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" /><path d="M9 12l2 2 4-4" /></svg>
+                </span>
+                <h3 className="text-2xl font-bold">Application Submitted!</h3>
+                <p className="max-w-[380px] text-base leading-relaxed text-[color:var(--text-2)]">Thank you for your interest in the pilot programme. A member of our team will be in touch shortly.</p>
+                <button type="button" className="mt-2 min-h-[44px] bg-transparent text-sm font-semibold text-[color:var(--link)]" onClick={() => setStatus("idle")}>Submit another application</button>
               </div>
             ) : (
-              <form onSubmit={handlePilotSubmit} className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    required
-                    placeholder="Jane Smith"
-                    value={pilotFormName}
-                    onChange={(e) => setPilotFormName(e.target.value)}
-                    className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                  />
+              <form onSubmit={handlePilotSubmit} noValidate className="flex flex-col gap-[18px]">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-2xl font-bold leading-tight">Apply for Pilot Access</h3>
+                  <p className="text-[15px] leading-normal text-[color:var(--text-2)]">Tell us about your service and the governance challenges you'd like Ordin Core to help with.</p>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      required
-                      placeholder="you@company.com"
-                      value={pilotFormEmail}
-                      onChange={(e) => setPilotFormEmail(e.target.value)}
-                      className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      required
-                      placeholder="e.g. +44 7123 456789"
-                      value={pilotFormPhone}
-                      onChange={(e) => setPilotFormPhone(e.target.value)}
-                      className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                    />
-                  </div>
+                <Field id="pf-name" label="Full Name" error={err("name")}>
+                  <input id="pf-name" type="text" name="name" autoComplete="name" placeholder="Jane Smith" value={form.name} onChange={(e) => set("name", e.target.value)} aria-invalid={!!err("name")} />
+                </Field>
+                <div className="grid-2">
+                  <Field id="pf-email" label="Email Address" error={err("email")}>
+                    <input id="pf-email" type="email" name="email" autoComplete="email" placeholder="you@company.com" value={form.email} onChange={(e) => set("email", e.target.value)} aria-invalid={!!err("email")} />
+                  </Field>
+                  <Field id="pf-phone" label="Phone Number" error={err("phone")}>
+                    <input id="pf-phone" type="tel" name="phone" autoComplete="tel" placeholder="e.g. +44 7123 456789" value={form.phone} onChange={(e) => set("phone", e.target.value)} aria-invalid={!!err("phone")} />
+                  </Field>
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Organisation Name
-                  </label>
-                  <input
-                    type="text"
-                    name="organisation"
-                    required
-                    placeholder="Your organisation"
-                    value={pilotFormOrg}
-                    onChange={(e) => setPilotFormOrg(e.target.value)}
-                    className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                  />
+                <Field id="pf-org" label="Organisation Name" error={err("organisation")}>
+                  <input id="pf-org" type="text" name="organisation" autoComplete="organization" placeholder="Your organisation" value={form.organisation} onChange={(e) => set("organisation", e.target.value)} aria-invalid={!!err("organisation")} />
+                </Field>
+                <div className="grid-2">
+                  <Field id="pf-role" label="Role" error={err("role")}>
+                    <input id="pf-role" type="text" name="role" autoComplete="organization-title" placeholder="e.g. Registered Manager" value={form.role} onChange={(e) => set("role", e.target.value)} aria-invalid={!!err("role")} />
+                  </Field>
+                  <Field id="pf-sites" label="Number of Services / Sites" error={err("sites")}>
+                    <input id="pf-sites" type="text" inputMode="numeric" name="number_of_services_sites" placeholder="e.g. 5" value={form.sites} onChange={(e) => set("sites", e.target.value)} aria-invalid={!!err("sites")} />
+                  </Field>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Role
-                    </label>
-                    <input
-                      type="text"
-                      name="role"
-                      required
-                      placeholder="e.g. Registered Manager"
-                      value={pilotFormRole}
-                      onChange={(e) => setPilotFormRole(e.target.value)}
-                      className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Number of Services / Sites
-                    </label>
-                    <input
-                      type="text"
-                      name="number_of_services_sites"
-                      required
-                      placeholder="e.g. 5"
-                      value={pilotFormServices}
-                      onChange={(e) => setPilotFormServices(e.target.value)}
-                      className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Type of Service
-                  </label>
-                  <select
-                    name="type_of_service"
-                    required
-                    value={pilotFormServiceType}
-                    onChange={(e) => setPilotFormServiceType(e.target.value)}
-                    className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                  >
+                <Field id="pf-type" label="Type of Service" error={err("serviceType")}>
+                  <select id="pf-type" name="type_of_service" value={form.serviceType} onChange={(e) => set("serviceType", e.target.value)} aria-invalid={!!err("serviceType")}>
                     <option value="">Select…</option>
                     <option value="Supported Living">Supported Living</option>
                     <option value="Mental Health Services">Mental Health Services</option>
                     <option value="Domiciliary & Community Care">Domiciliary &amp; Community Care</option>
                     <option value="Other">Other</option>
                   </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Current Governance Challenge
+                </Field>
+                <Field id="pf-challenge" label="Current Governance Challenge" error={err("challenge")}>
+                  <textarea id="pf-challenge" name="current_governance_challenge" rows={3} placeholder="What governance challenge are you currently facing?" value={form.challenge} onChange={(e) => set("challenge", e.target.value)} aria-invalid={!!err("challenge")} />
+                </Field>
+                <Field id="pf-help" label="What would you like Ordin Core to help with?" error={err("help")}>
+                  <textarea id="pf-help" name="what_ordin_core_can_help_with" rows={3} placeholder="Tell us what you'd like to achieve." value={form.help} onChange={(e) => set("help", e.target.value)} aria-invalid={!!err("help")} />
+                </Field>
+                <div className="fld">
+                  <label htmlFor="pf-consent" className="flex cursor-pointer items-start gap-3 text-sm font-medium leading-normal text-[color:var(--text-2)]">
+                    <input id="pf-consent" type="checkbox" name="consent_to_be_contacted" checked={form.consent} onChange={(e) => set("consent", e.target.checked)} />
+                    I consent to be contacted by Ordin Core about the pilot programme.
                   </label>
-                  <textarea
-                    name="current_governance_challenge"
-                    required
-                    rows={3}
-                    placeholder="What governance challenge are you currently facing?"
-                    value={pilotFormChallenge}
-                    onChange={(e) => setPilotFormChallenge(e.target.value)}
-                    className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                  />
+                  {err("consent") ? <span className="ferr">{err("consent")}</span> : null}
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    What would you like Ordin Core to help with?
-                  </label>
-                  <textarea
-                    name="what_ordin_core_can_help_with"
-                    required
-                    rows={3}
-                    placeholder="Tell us what you'd like to achieve."
-                    value={pilotFormHelp}
-                    onChange={(e) => setPilotFormHelp(e.target.value)}
-                    className="w-full rounded-xl border border-[#C6D5E1] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
-                  />
-                </div>
-
-                <label className="flex items-start gap-3 text-sm text-slate-600 dark:text-slate-300">
-                  <input
-                    type="checkbox"
-                    name="consent_to_be_contacted"
-                    required
-                    checked={pilotFormConsent}
-                    onChange={(e) => setPilotFormConsent(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#C6D5E1] text-[#28536F] focus:ring-[#28536F]"
-                  />
-                  I consent to be contacted by Ordin Core about the pilot programme.
-                </label>
-
-                {pilotSubmitStatus === "error" && (
-                  <p className="text-xs text-red-500 font-semibold">{pilotSubmitError || "Failed to submit. Please try again."}</p>
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={pilotSubmitStatus === "submitting"}
-                  className="w-full rounded-xl bg-[#28536F] hover:bg-[#172B3B] text-white flex items-center justify-center gap-2 py-3 shadow"
-                >
-                  {pilotSubmitStatus === "submitting" ? "Submitting Application..." : "Apply for Pilot Access"}
-                </Button>
+                {status === "error" && <p className="ferr" role="alert">{submitError || "Failed to submit. Please try again."}</p>}
+                <button type="submit" className="btn-p btn-lg w-full" disabled={status === "submitting"}>
+                  {status === "submitting" ? "Submitting Application..." : "Apply for Pilot Access"}
+                </button>
               </form>
             )}
           </div>
-        </div>
-      )}
+        </section>
 
-      {/* ── GOVERNANCE OUTPUTS LIGHTBOX ── */}
-      {activeOutputDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in" onClick={() => setActiveOutputDetail(null)}>
-          <div className="relative w-full max-w-7xl overflow-hidden rounded-3xl border border-slate-850 bg-slate-900 shadow-2xl p-6 flex flex-col space-y-4" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setActiveOutputDetail(null)}
-              className="absolute top-4 right-4 h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-slate-700 transition"
-              aria-label="Close preview"
-            >
-              <XMarkIcon className="h-5 w-5" />
-            </button>
+        {/* ── PILOT STRUCTURE & PRICING ──
+             Hidden from the public site until commercial terms are ready to go live. Kept in the
+             code (PricingSection.tsx) so it isn't lost by the 23 Nov 2026 redesign -- re-enable by
+             changing `{false && (` back to `{(`. */}
+        {false && (
+          <>
+            <PilotStructureSection />
+            <PricingTableSection />
+          </>
+        )}
 
-            <div className="space-y-1">
-              <h3 className="text-xl font-bold text-white">
-                {activeOutputDetail.label}
-              </h3>
-              <p className="text-xs text-slate-400">
-                {activeOutputDetail.desc} — Captured live from Ordin Core operational dashboards.
-              </p>
+        {/* ── FAQ ── */}
+        <section id="faq" className="wrap max-w-[820px] pb-28 pt-4">
+          <h2 className="rv text-center text-[clamp(28px,3vw,38px)] font-bold leading-[1.12]">Frequently Asked Questions</h2>
+          <div className="stg mt-10 border-t border-[color:var(--line)]">
+            {FAQS.map((f, i) => (
+              <div key={f.q} className="border-b border-[color:var(--line)]">
+                <button type="button" className="faq-q" aria-expanded={openFaq === i} onClick={() => setOpenFaq(openFaq === i ? -1 : i)}>
+                  <span className="text-lg font-semibold">{f.q}</span>
+                  <svg className={`chev ${openFaq === i ? "open" : ""}`} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                </button>
+                {openFaq === i && <p className="max-w-[680px] px-1 pb-6 text-base leading-relaxed text-[color:var(--text-2)]">{f.a}</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+
+      {/* ── FOOTER ── */}
+      <footer className="band">
+        <div className="wrap flex flex-col gap-12 pb-9 pt-[72px]">
+          <div className="grid gap-8 text-[15px] [grid-template-columns:repeat(auto-fit,minmax(170px,1fr))]">
+            <div className="col-span-2 flex flex-col gap-3.5">
+              <img src={logoDarkImg} alt="Ordin Core" className="h-9 w-auto self-start" />
+              <p className="max-w-[340px] leading-relaxed text-[color:var(--band-text-2)]">Structured operational governance and assurance loops for supported living, community, and care services.</p>
+              <a href="mailto:support@ordincore.co.uk" className="flink">support@ordincore.co.uk</a>
+              <a href="mailto:support@ordincore.co.uk" className="flink">support@ordincore.co.uk — Pilot enquiries</a>
             </div>
-
-            <div className="relative flex-1 overflow-auto rounded-xl border border-slate-850 bg-slate-950 flex items-center justify-center max-h-[85vh] min-h-[300px]">
-              <img
-                src={activeOutputDetail.image}
-                alt={activeOutputDetail.label}
-                className="max-w-full max-h-full object-contain rounded-lg"
-              />
-            </div>
-
-            <div className="flex justify-between items-center text-xs text-slate-500 font-semibold">
-              <p>Click Close or click outside to return</p>
-              <Button onClick={() => setActiveOutputDetail(null)} className="py-1 px-4 text-xs h-8 bg-slate-850 border border-slate-750 text-white hover:bg-slate-750">
-                Close Preview
-              </Button>
-            </div>
+            {FOOTER_COLUMNS.map((col) => (
+              <div key={col.title} className="flex flex-col gap-2.5">
+                <span className="font-bold">{col.title}</span>
+                {col.links.map(([label, href]) => <a key={label} href={href} className="flink">{label}</a>)}
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap justify-between gap-4 border-t border-[color:var(--band-line)] pt-6 text-[13px] text-[color:var(--band-text-2)]">
+            <span>© 2026 Ordin Core Inc. All rights reserved.</span>
+            <span className="flex gap-5">
+              <a href="/privacy/" className="flink">Privacy Policy</a>
+              <a href="/data-security.html" className="flink">Data Security</a>
+              <a href="/terms-of-service.html" className="flink">Terms of Service</a>
+            </span>
           </div>
         </div>
-      )}
-
+      </footer>
     </div>
   );
 }
