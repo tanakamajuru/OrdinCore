@@ -150,9 +150,10 @@ export function Login() {
   return (
     <FullScreen handle={handle}>
       <div className="min-h-dvh overflow-y-auto bg-background flex">
-        {/* Side borders, equal on both sides, with an inner blue accent. Widths follow the
-            agreed measurements: 8px mobile / 24px tablet / clamp(72px,7vw,112px) desktop. */}
-        <div className="relative shrink-0 w-2 sm:w-6 lg:w-[clamp(72px,7vw,112px)]">
+        {/* Side borders, equal on both sides — solid navy bars with an inner blue accent edge.
+            Widths follow the agreed measurements: 8px mobile / 24px tablet / clamp(72px,7vw,112px)
+            desktop. */}
+        <div className="relative shrink-0 w-2 sm:w-6 lg:w-[clamp(72px,7vw,112px)]" style={{ background: "#001038" }}>
           <div className="absolute inset-y-0 right-0 w-px sm:w-0.5 lg:w-[3px]" style={{ background: "#005cf8" }} />
         </div>
 
@@ -273,7 +274,7 @@ export function Login() {
           </div>
         </div>
 
-        <div className="relative shrink-0 w-2 sm:w-6 lg:w-[clamp(72px,7vw,112px)]">
+        <div className="relative shrink-0 w-2 sm:w-6 lg:w-[clamp(72px,7vw,112px)]" style={{ background: "#001038" }}>
           <div className="absolute inset-y-0 left-0 w-px sm:w-0.5 lg:w-[3px]" style={{ background: "#005cf8" }} />
         </div>
       </div>
