@@ -120,7 +120,7 @@ export function WeeklyGovernanceTeamReport({ report, onAcknowledge }: Props) {
             {filteredEvents.map((event) => (
               <li key={event.id}><time>{event.dateLabel}</time>
                 <p>{event.headline || event.summary}</p>
-                {!!event.signals?.length && <div className="mt-2 space-y-2">{event.signals.map((sig) => {
+                {!!event.signals?.length && <div className="wgr-timeline-signals">{event.signals.map((sig) => {
                   const fmt = (v?: string | null) => { if (!v) return ""; const d = new Date(v); return isNaN(d.getTime()) ? "" : new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(d); };
                   const decidedAt = fmt(sig.decidedAt); const followUp = fmt(sig.followUpDue);
                   return (

@@ -107,7 +107,11 @@ export function EscalationLog() {
   // contributes evidence; the Registered Manager owns the governance decision.
   const activeRole = String(localStorage.getItem("userRole") || (JSON.parse(localStorage.getItem("user") || "{}")?.role) || "").toUpperCase().replace(/-/g, "_");
   const isDelivery = ["TEAM_LEADER", "SUPPORT_WORKER"].includes(activeRole);
-  const canDecide = ["REGISTERED_MANAGER", "DIRECTOR", "ADMIN", "SUPER_ADMIN"].includes(activeRole);
+  // 23 Nov 2026 field report: an escalation raised to the RI (My Work > Decisions Due > Review
+  // Escalation) showed the full history but no decision form -- this list omitted
+  // RESPONSIBLE_INDIVIDUAL, so an RI could never record the outcome/rationale their escalation
+  // was waiting on.
+  const canDecide = ["REGISTERED_MANAGER", "DIRECTOR", "RESPONSIBLE_INDIVIDUAL", "ADMIN", "SUPER_ADMIN"].includes(activeRole);
   const [progressNote, setProgressNote] = useState("");
   const [progressUrgent, setProgressUrgent] = useState(false);
   const [progressBusy, setProgressBusy] = useState(false);

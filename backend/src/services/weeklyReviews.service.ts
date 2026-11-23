@@ -720,7 +720,15 @@ export class WeeklyReviewsService {
               -- Signed reports keep their frozen snapshot; the live fallback now carries the FULL
               -- decision (not status alone): concern, decision, rationale, intended outcome, evidence,
               -- reviewer and the actual decision time, so a report explains the decision (briefs R1–R3).
-              COALESCE((dgl.evidence_snapshot::jsonb)->'signals',
+              -- Field report (23 Nov 2026): a signed day's evidence_snapshot is captured verbatim
+              -- at sign-off (dailyGovernance.service.ts) with no 'Scheduled Governance Pulse'
+              -- exclusion of its own, unlike the live-fallback subquery below -- so a report built
+              -- from a signed snapshot showed the reminder placeholder again even though the live
+              -- path already excludes it. Filter BOTH paths here, after the COALESCE, so the
+              -- exclusion applies uniformly without touching the frozen snapshot itself.
+              (SELECT COALESCE(jsonb_agg(sig), '[]'::jsonb)
+                 FROM jsonb_array_elements(
+                  COALESCE((dgl.evidence_snapshot::jsonb)->'signals',
                 (SELECT COALESCE(jsonb_agg(jsonb_build_object(
                    'id',gp.id,'person',gp.related_person,'domain',(gp.risk_domain)[1],
                    'description',gp.description,'severity',gp.severity,'reviewStatus',gp.review_status,
@@ -760,6 +768,8 @@ export class WeeklyReviewsService {
                     -- instead of the real content recorded that day.
                     AND COALESCE(gp.description,'') <> 'Scheduled Governance Pulse'
                     AND COALESCE(gp.validity_status::text, 'VALID') NOT IN ('DUPLICATE', 'ENTERED_IN_ERROR', 'DISPROVED'))
+              )) sig
+                WHERE COALESCE(sig->>'description','') <> 'Scheduled Governance Pulse'
               ) AS signals
          FROM daily_governance_log dgl
         WHERE dgl.company_id=$1 AND dgl.house_id=$2

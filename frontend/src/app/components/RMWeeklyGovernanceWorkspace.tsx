@@ -4,6 +4,41 @@ type Props = { houses:any[]; houseId:string; weekEnding:string; preview:any; for
 const positions=["Stable","Watch","Concern","Escalating","Serious Concern"];
 const fmt=(v:any)=>v?new Date(v).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"Not recorded";
 
+// A Daily Governance Review brief is assembled server/client-side as a single plain-text block
+// (see DailyOversightBoard.tsx's "L" builder) — heading lines, then "What happened" / "Management
+// decisions" / "Escalations" / "Existing actions to remember" sections, each a flat list of "- "
+// rows with "  "-indented sub-lines (e.g. Findings) belonging to the row above. Parsed here so the
+// Weekly Review can render it as proper panels instead of one unstyled text blob (23 Nov 2026).
+type BriefRow = { main: string; subs: string[] };
+const groupBulletLines = (lines: string[]): BriefRow[] => {
+  const out: BriefRow[] = [];
+  for (const raw of lines) {
+    if (raw.startsWith("  ")) { if (out.length) out[out.length - 1].subs.push(raw.trim()); continue; }
+    out.push({ main: raw.startsWith("- ") ? raw.slice(2) : raw, subs: [] });
+  }
+  return out;
+};
+const SECTION_HEADINGS = ["What happened", "Management decisions", "Escalations", "Existing actions to remember"] as const;
+const parseDailyBrief = (text: string) => {
+  const fields: Record<string, string> = {};
+  const sections: Record<string, string[]> = { "What happened": [], "Management decisions": [], "Escalations": [], "Existing actions to remember": [] };
+  let current: string | null = null;
+  for (const line of String(text || "").split("\n")) {
+    const m = line.match(/^(Service|Date|Reviewed by|Review time):\s*(.*)$/);
+    if (m) { fields[m[1]] = m[2]; continue; }
+    if ((SECTION_HEADINGS as readonly string[]).includes(line)) { current = line; continue; }
+    if (line === "" || line === "Daily Governance Review") continue;
+    if (current) sections[current].push(line);
+  }
+  return {
+    fields,
+    whatHappened: groupBulletLines(sections["What happened"]),
+    decisions: groupBulletLines(sections["Management decisions"]),
+    escalations: groupBulletLines(sections["Escalations"]),
+    actions: groupBulletLines(sections["Existing actions to remember"]),
+  };
+};
+
 export function RMWeeklyGovernanceWorkspace(props:Props){
  const {preview,form,locked}=props, auto=preview?.auto_population||{}, evidence=preview?.weekly_evidence||{};
  const signals:any[]=Array.isArray(auto.signals)?auto.signals:[], briefs:any[]=Array.isArray(evidence.daily_briefs)?evidence.daily_briefs:[], measures:any[]=Array.isArray(evidence.active_measures)?evidence.active_measures:[], gaps:string[]=Array.isArray(evidence.evidence_gaps)?evidence.evidence_gaps:[];
@@ -16,7 +51,73 @@ export function RMWeeklyGovernanceWorkspace(props:Props){
  return <div className="space-y-5" data-testid="rm-weekly-governance-workspace">
   <div className="flex flex-col lg:flex-row lg:items-end gap-4"><div className="flex-1"><label className="text-sm font-medium">Service</label><select value={props.houseId} disabled={locked} onChange={e=>props.onHouseChange(e.target.value)} className="mt-1 w-full border border-border rounded-lg p-3 bg-background">{props.houses.map(h=><option key={h.id} value={h.id}>{h.name}</option>)}</select></div><div><label className="text-sm font-medium">Week ending</label><input type="date" value={props.weekEnding} disabled={locked} onChange={e=>props.onWeekChange(e.target.value)} className="mt-1 block border border-border rounded-lg p-3 bg-background"/></div><div className="rounded-lg border border-border px-4 py-3 min-w-44"><p className="text-xs text-muted-foreground">Review status</p><p className="font-semibold capitalize">{props.status.replaceAll("_"," ")}</p></div></div>
   <section className={card}><div className="flex items-center justify-between mb-4"><div><h2 className="font-semibold text-lg">Weekly evidence snapshot</h2><p className="text-sm text-muted-foreground">Automatically pulled for this service and week.</p></div>{gaps.length?<span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800">{gaps.length} evidence gap{gaps.length===1?"":"s"}</span>:<CheckCircle2 className="text-emerald-600" size={20}/>}</div><div className="grid grid-cols-2 md:grid-cols-5 gap-3">{[[signals.length,"Signals reviewed"],[high,"High / critical"],[domains.size,"Main domains"],[`${evidence.brief_days||0}/7`,"Daily briefs"],[measures.length,"Active measures"]].map(([n,l])=><div key={String(l)} className="rounded-lg bg-muted/50 p-3"><p className="text-xl font-semibold">{n}</p><p className="text-xs text-muted-foreground">{l}</p></div>)}</div>{gaps.length>0&&<div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><div className="flex gap-2 font-medium"><AlertTriangle size={17}/>Requires confirmation</div><ul className="mt-2 list-disc pl-5">{gaps.map(g=><li key={g}>{g}</li>)}</ul></div>}</section>
-  <section className={card}><h2 className="font-semibold text-lg">Collective Daily Team Briefing</h2><p className="text-sm text-muted-foreground mb-4">Dated published briefs remain visible; repeated instructions may be consolidated in the summary.</p>{briefs.length?<div className="divide-y divide-border">{briefs.map(b=><div key={b.id||b.date} className="grid md:grid-cols-[130px_1fr] gap-2 py-3"><div className="text-sm font-medium">{fmt(b.date)}</div><div><p className="text-sm whitespace-pre-line">{b.summary}</p><p className="text-xs text-muted-foreground mt-1">{b.acknowledgement_count||0} acknowledgement(s)</p></div></div>)}</div>:<p className="text-sm text-muted-foreground">No completed published Daily Team Brief was found.</p>}<label className="block text-sm font-medium mt-4 mb-1">Collective weekly summary for the team report</label><textarea className={area} disabled={locked} value={form.collective_daily_brief_summary||""} onChange={e=>props.onField("collective_daily_brief_summary",e.target.value)} placeholder="Summarise the consistent message, important changes and what carried forward. Do not paste all seven briefs."/></section>
+  <section className={card}><h2 className="font-semibold text-lg">Collective Daily Team Briefing</h2><p className="text-sm text-muted-foreground mb-4">Dated published briefs remain visible; repeated instructions may be consolidated in the summary.</p>{briefs.length?<div className="space-y-4">{briefs.map(b=>{
+    const d=parseDailyBrief(b.summary);
+    return (
+      <div key={b.id||b.date} className="border border-border rounded-xl overflow-hidden">
+        <div className="flex flex-wrap items-start gap-3 p-4 border-b border-border bg-muted/30">
+          <span className="text-sm font-semibold text-primary bg-primary/10 rounded-lg px-3 py-1.5 whitespace-nowrap">{fmt(b.date)}</span>
+          <div className="flex-1 min-w-[220px]">
+            <h3 className="text-base font-semibold text-foreground">Daily Governance Review</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 mt-1 text-sm text-muted-foreground">
+              <div>
+                {d.fields["Service"] && <div>Service: {d.fields["Service"]}</div>}
+                {d.fields["Date"] && <div>Date: {d.fields["Date"]}</div>}
+              </div>
+              <div>
+                {d.fields["Reviewed by"] && <div>Reviewed by: {d.fields["Reviewed by"]}</div>}
+                {d.fields["Review time"] && <div>Review time: {d.fields["Review time"]}</div>}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="p-4 space-y-4">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">What happened</div>
+            <div className="space-y-1.5 text-sm">
+              {d.whatHappened.length?d.whatHappened.map((g,i)=>(
+                <div key={i} className="pl-4 -indent-4">
+                  <span>{g.main}</span>
+                  {g.subs.map((s,j)=><div key={j} className="pl-4 text-muted-foreground">{s}</div>)}
+                </div>
+              )):<p className="text-muted-foreground">—</p>}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Management decisions</div>
+            <div className="divide-y divide-border/60 text-sm">
+              {d.decisions.length?d.decisions.map((g,i)=>(
+                <div key={i} className="py-2 first:pt-0">
+                  <div className="pl-4 -indent-4">{g.main}</div>
+                  {g.subs.map((s,j)=><div key={j} className="pl-4 text-muted-foreground mt-0.5">{s}</div>)}
+                </div>
+              )):<p className="text-muted-foreground py-2">—</p>}
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Escalations</div>
+              <div className="space-y-1 text-sm">
+                {d.escalations.length?d.escalations.map((g,i)=>(
+                  <div key={i} className="pl-4 -indent-4">
+                    <span>{g.main}</span>
+                    {g.subs.map((s,j)=><div key={j} className="pl-4 text-muted-foreground">{s}</div>)}
+                  </div>
+                )):<p className="text-muted-foreground">—</p>}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Existing actions to remember</div>
+              <div className="space-y-1 text-sm">
+                {d.actions.length?d.actions.map((g,i)=><div key={i} className="pl-4 -indent-4">{g.main}</div>):<p className="text-muted-foreground">—</p>}
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">{b.acknowledgement_count||0} acknowledgement(s)</p>
+        </div>
+      </div>
+    );
+  })}</div>:<p className="text-sm text-muted-foreground">No completed published Daily Team Brief was found.</p>}<label className="block text-sm font-medium mt-4 mb-1">Collective weekly summary for the team report</label><textarea className={area} disabled={locked} value={form.collective_daily_brief_summary||""} onChange={e=>props.onField("collective_daily_brief_summary",e.target.value)} placeholder="Summarise the consistent message, important changes and what carried forward. Do not paste all seven briefs."/></section>
   <div className="grid xl:grid-cols-2 gap-5"><section className={card}><h2 className="font-semibold text-lg mb-3">RM interpretation</h2><label className="text-sm font-medium">Overall governance position</label><select disabled={locked} value={form.step14_overall_position||""} onChange={e=>props.onField("step14_overall_position",e.target.value)} className="mt-1 mb-4 w-full border border-border rounded-lg p-3 bg-background"><option value="">Select position</option>{positions.map(x=><option key={x}>{x}</option>)}</select><label className="text-sm font-medium">What happened and what leadership understood</label><textarea disabled={locked} className={`${area} mt-1 mb-3`} value={form.step15_narrative||""} onChange={e=>props.onField("step15_narrative",e.target.value)}/><label className="text-sm font-medium">What remains a concern / not rectified</label><textarea disabled={locked} className={`${area} mt-1`} value={form.unresolved_concerns_text||""} onChange={e=>props.onField("unresolved_concerns_text",e.target.value)}/></section>
   <section className={card}><h2 className="font-semibold text-lg mb-3">Learning and next week</h2><label className="text-sm font-medium">What we learned and what changes</label><textarea disabled={locked} className={`${area} mt-1 mb-3`} value={form.lessons_learnt||""} onChange={e=>props.onField("lessons_learnt",e.target.value)}/><label className="text-sm font-medium">Week-ahead expectations / anticipated risks</label><textarea disabled={locked} className={`${area} mt-1`} value={form.anticipated_risks?.rm_note||""} onChange={e=>setAnt(e.target.value)}/><div className="mt-4 rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground"><b>Doctrine boundary:</b> completed is not effective; stable is not resolved; acknowledgement confirms receipt only.</div></section></div>
   <section className={card}><h2 className="font-semibold text-lg mb-3">Active measures and evidence</h2>{measures.length?<div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left border-b"><th className="py-2">Measure</th><th>Owner</th><th>Due / review</th><th>Status</th><th>Evidence</th></tr></thead><tbody>{measures.map(m=><tr key={m.id} className="border-b align-top"><td className="py-2 pr-3">{m.measure}</td><td className="pr-3">{m.owner||"Unassigned"}</td><td className="pr-3">{fmt(m.effectiveness_review_date||m.due_date)}</td><td className="pr-3">{m.status}</td><td>{m.evidence_expected||"Not recorded"}</td></tr>)}</tbody></table></div>:<p className="text-sm text-muted-foreground">No active measure is linked to this service.</p>}</section>
