@@ -60,7 +60,7 @@ router.get('/:actionId/effectiveness-history', requireAuth, requireTenant,
   actionEffectivenessController.getHistory.bind(actionEffectivenessController));
 // Resolve one action's rating payload (pending OR scheduled) for an early review / focus deep-link.
 router.get('/:id/effectiveness-review', requireAuth, requireTenant,
-  requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'),
+  requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'),
   actionEffectivenessController.getForAction.bind(actionEffectivenessController));
 
 /**

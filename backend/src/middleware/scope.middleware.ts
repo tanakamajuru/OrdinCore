@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { normaliseRole } from './role.middleware';
 
 const ROLE_LEVELS: Record<string, number> = {
   SUPER_ADMIN: 100,
@@ -20,7 +21,12 @@ export const requireScope = (req: Request, res: Response, next: NextFunction): v
     return;
   }
 
-  const userRole = req.user.role?.toUpperCase() || '';
+  // Role values have historically been stored in two formats ('REGISTERED_MANAGER' and
+  // 'registered-manager'). A plain toUpperCase() leaves hyphens in place, missing the
+  // ROLE_LEVELS lookup entirely and falling back to level 0 — which wrongly forces a company-wide
+  // role (e.g. Registered Manager) down the house-restricted path below, 403-ing them for having
+  // no assigned house. Always normalise hyphens to underscores first.
+  const userRole = normaliseRole(req.user.role);
   const userLevel = ROLE_LEVELS[userRole] || 0;
 
   // The Registered Manager oversees the WHOLE registered service — every house in the company —

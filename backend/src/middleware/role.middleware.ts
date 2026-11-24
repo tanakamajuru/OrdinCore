@@ -13,6 +13,14 @@ const ROLE_HIERARCHY: Record<Role, number> = {
   SUPPORT_WORKER: 30,
 };
 
+// Role values have been stored in two formats historically (e.g. 'REGISTERED_MANAGER' and
+// 'registered-manager' — see the frontend User type and RoleBasedNavigation's own normalisation).
+// A plain toUpperCase() alone leaves hyphens in place ('REGISTERED-MANAGER'), which then fails to
+// match the underscored Role literals below and 403s a user who genuinely holds the role (reported
+// live: a Registered Manager denied on an endpoint that already lists REGISTERED_MANAGER as
+// allowed). Always normalise hyphens to underscores before comparing.
+export const normaliseRole = (role?: string): Role => (role || '').toUpperCase().replace(/-/g, '_') as Role;
+
 export const requireRole = (...roles: Role[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
@@ -20,7 +28,7 @@ export const requireRole = (...roles: Role[]) => {
       return;
     }
 
-    const userRole = req.user.role?.toUpperCase() as Role;
+    const userRole = normaliseRole(req.user.role);
 
     if (!roles.includes(userRole)) {
       res.status(403).json({
@@ -42,7 +50,7 @@ export const requireMinRole = (minRole: Role) => {
       return;
     }
 
-    const userRole = req.user.role?.toUpperCase() as Role;
+    const userRole = normaliseRole(req.user.role);
     const userLevel = ROLE_HIERARCHY[userRole] ?? 0;
     const minLevel = ROLE_HIERARCHY[minRole] ?? 0;
 
@@ -71,7 +79,7 @@ export const blockOversightRole = (req: Request, res: Response, next: NextFuncti
     res.status(401).json({ success: false, message: 'Not authenticated', errors: [] });
     return;
   }
-  if (req.user.role?.toUpperCase() === 'RESPONSIBLE_INDIVIDUAL') {
+  if (normaliseRole(req.user.role) === 'RESPONSIBLE_INDIVIDUAL') {
     res.status(403).json({
       success: false,
       code: 'OVERSIGHT_READONLY',
@@ -84,5 +92,5 @@ export const blockOversightRole = (req: Request, res: Response, next: NextFuncti
 };
 
 export const isSuperAdmin = (req: Request): boolean => {
-  return req.user?.role?.toUpperCase() === 'SUPER_ADMIN';
+  return normaliseRole(req.user?.role) === 'SUPER_ADMIN';
 };

@@ -8,6 +8,7 @@ import { governanceService } from './governance.service';
 import { mfaService } from './mfa.service';
 import { sendMail } from '../utils/mailer';
 import logger from '../utils/logger';
+import { normaliseRole } from '../middleware/role.middleware';
 
 // One-time password-reset tokens are valid for this long.
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -140,7 +141,7 @@ export class AuthService {
     const houseRoles = ['REGISTERED_MANAGER', 'RM', 'TEAM_LEADER', 'TL'];
     if (user.company_id) {
       const houseId = user.assigned_house_id;
-      if (houseRoles.includes(user.role.toUpperCase()) && houseId) {
+      if (houseRoles.includes(normaliseRole(user.role)) && houseId) {
         void governanceService.generateMissingPulses(user.company_id, houseId, user.id).catch(err => { console.error(`Failed to generate pulses for house ${houseId}:`, err); });
       } else {
         void governanceService.generateMissingPulses(user.company_id).catch(err => { console.error('Failed to generate missing pulses on login:', err); });

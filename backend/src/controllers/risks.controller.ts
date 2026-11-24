@@ -3,12 +3,13 @@ import { risksService } from '../services/risks.service';
 import { trajectoryForRisk } from '../services/trajectory.service';
 import { riskMetricsService } from '../services/riskMetrics.service';
 import { isOutsideHouseScope } from '../utils/houseScope';
+import { normaliseRole } from '../middleware/role.middleware';
 
 export class RisksController {
   async create(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      const userRole = req.user!.role?.toUpperCase() || '';
+      const userRole = normaliseRole(req.user!.role);
       const { override_cluster_requirement, ...data } = req.body;
 
       if (!override_cluster_requirement || userRole !== 'SUPER_ADMIN') {

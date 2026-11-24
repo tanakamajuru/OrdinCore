@@ -113,21 +113,21 @@ export function SystemicPatterns() {
           <div className="bg-card border-2 border-dashed border-border rounded-xl p-12 text-center text-muted-foreground mt-6">No potential cross-service patterns were detected from the available recorded evidence.</div>
         ) : (
           <div className="bg-card border-2 border-border rounded-xl overflow-hidden mt-6">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm border-collapse">
               <thead><tr className="text-left text-[11px] uppercase text-muted-foreground border-b border-border bg-muted/40">
                 <th className="py-3 px-4">Pattern</th><th className="px-3">Services affected</th><th className="px-3">Trajectory</th><th className="px-3">Signals</th><th className="px-3">Risk</th><th className="px-3"></th>
               </tr></thead>
               <tbody>
-                {items.map((p: any) => {
+                {items.map((p: any, idx: number) => {
                   const t = TRAJ[dirOf(p.trajectory)] || TRAJ.Stable;
                   const houses = p.houses || p.affected_house_names || [];
                   return (
-                    <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30">
-                      <td className="py-3 px-4 font-medium text-foreground">{p.domain}{p.person && p.person !== "—" ? <span className="text-muted-foreground font-normal"> · {p.person}</span> : null}
+                    <tr key={p.id} className={`border-b-2 border-border ${idx % 2 === 1 ? "bg-muted/40" : "bg-card"} hover:bg-muted/60`}>
+                      <td className="py-4 px-4 font-medium text-foreground">{p.domain}{p.person && p.person !== "—" ? <span className="text-muted-foreground font-normal"> · {p.person}</span> : null}
                         {p.last_reviewed_at && <div className="text-[11px] text-muted-foreground font-normal">Reviewed {new Date(p.last_reviewed_at).toLocaleDateString("en-GB")}{p.review_outcome ? ` · ${p.review_outcome}` : ""}</div>}
                         {p.linkedRiskClosed && <div className="mt-1 inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Linked risk resolved — ready for final closure</div>}
                       </td>
-                      <td className="px-3 text-muted-foreground">
+                      <td className="py-4 px-3 text-muted-foreground">
                         {Array.isArray(houses) ? houses.length : 0}{Array.isArray(houses) && houses.length ? <span className="text-[11px]"> ({houses.slice(0, 3).join(", ")}{houses.length > 3 ? "…" : ""})</span> : ""}
                         <div className="text-[10px] text-indigo-600 mt-0.5">
                           {[
@@ -138,15 +138,15 @@ export function SystemicPatterns() {
                           ].filter(Boolean).join(" · ")}
                         </div>
                       </td>
-                      <td className="px-3"><span className="inline-flex items-center gap-1 font-medium" style={{ color: t.color }}><t.Icon size={15} />{t.label}</span></td>
-                      <td className="px-3 text-foreground">
+                      <td className="py-4 px-3"><span className="inline-flex items-center gap-1 font-medium" style={{ color: t.color }}><t.Icon size={15} />{t.label}</span></td>
+                      <td className="py-4 px-3 text-foreground">
                         {p.signalCount} of {p.threshold || 3} required<span className="text-[10px] text-muted-foreground"> · {p.windowDays || 7}d</span>
                         {p.historicalSignalCount > p.signalCount && <div className="text-[10px] text-muted-foreground">{p.historicalSignalCount} historical linked</div>}
                         {Array.isArray(p.subthemes) && p.subthemes.length > 0 && <div className="text-[10px] text-muted-foreground">subtheme: {p.subthemes.slice(0, 2).join(", ")}</div>}
                         {p.signalCount < (p.threshold || 3) && <div className="text-[10px] text-amber-600">not yet an established pattern</div>}
                       </td>
-                      <td className="px-3">{p.promotedRiskId ? <button onClick={() => navigate(`/risk-register/${p.promotedRiskId}`)} className="text-primary hover:underline inline-flex items-center gap-0.5">View risk <ChevronRight size={13} /></button> : <span className="text-muted-foreground">—</span>}</td>
-                      <td className="px-3"><button onClick={() => openReview(p)} className="text-xs font-medium text-primary border border-primary/30 rounded px-2.5 py-1 hover:bg-primary/10">Review</button></td>
+                      <td className="py-4 px-3">{p.promotedRiskId ? <button onClick={() => navigate(`/risk-register/${p.promotedRiskId}`)} className="text-primary hover:underline inline-flex items-center gap-0.5">View risk <ChevronRight size={13} /></button> : <span className="text-muted-foreground">—</span>}</td>
+                      <td className="py-4 px-3"><button onClick={() => openReview(p)} className="text-xs font-medium text-primary border border-primary/30 rounded px-2.5 py-1 hover:bg-primary/10">Review</button></td>
                     </tr>
                   );
                 })}

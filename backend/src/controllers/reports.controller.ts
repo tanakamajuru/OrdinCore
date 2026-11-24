@@ -6,6 +6,7 @@ import { narrativeService } from '../services/narrative.service';
 import { generatedReportsService } from '../services/generatedReports.service';
 import { governancePdfService } from '../services/governancePdf.service';
 import { query } from '../config/database';
+import { normaliseRole } from '../middleware/role.middleware';
 
 export class ReportsController {
   // ─── Canonical report data (spec module 10: only four reports) ──────────────
@@ -207,7 +208,7 @@ export class ReportsController {
 
       // Enforce RM/TL report scoping
       const rbacRoles = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'];
-      const userRole = req.user!.role.toUpperCase();
+      const userRole = normaliseRole(req.user!.role);
       if (!req.body.parameters) req.body.parameters = {};
       
       if (!rbacRoles.includes(userRole)) {
