@@ -60,6 +60,13 @@ export function GovernanceTimeline() {
   const [showCommentary, setShowCommentary] = useState(false);
   const [commentary, setCommentary] = useState("");
   const [savingCommentary, setSavingCommentary] = useState(false);
+  // 25 Nov 2026 field report: an incident whose reconstruction was previously locked (status
+  // Completed/Approved) always serves that FROZEN evidence_snapshot (doctrine §8.3 — once locked,
+  // the record never silently re-derives), even if risks/escalations are linked to the incident
+  // AFTER the freeze. This page never surfaced that at all, so a frozen-before-linking snapshot
+  // (empty timeline) looked identical to "nothing happened" rather than "this view is locked to an
+  // earlier point in time." ReconstructionReport.tsx already does this; mirrored here.
+  const [frozenAt, setFrozenAt] = useState<string | null>(null);
 
   useEffect(() => {
     console.log('GovernanceTimeline useEffect triggered');
@@ -95,6 +102,7 @@ export function GovernanceTimeline() {
         console.log('Timeline response:', timelineRes.data);
         
         const timelineData = (timelineRes.data as any).data || (timelineRes.data as any) || {};
+        setFrozenAt(timelineData.frozen ? (timelineData.frozen_at || null) : null);
         let timelineList: any[] = [];
         
         if (Array.isArray(timelineData)) {
@@ -127,6 +135,7 @@ export function GovernanceTimeline() {
         console.error('Governance timeline endpoint failed:', err);
         toast.error('Could not load the governance timeline.');
         setEvents([]);
+        setFrozenAt(null);
         eventsLoadedRef.current = true;
       }
       
@@ -310,6 +319,16 @@ export function GovernanceTimeline() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
+                {frozenAt && (
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900">
+                    This timeline was locked as part of a completed reconstruction on {new Date(frozenAt).toLocaleString('en-GB')}. It shows the evidence as it stood at that point — any risk, escalation or signal linked to this incident afterwards will not appear here unless the reconstruction is redone.
+                  </div>
+                )}
+                {events.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No governance timeline events are recorded for this incident.
+                  </div>
+                )}
                 <div className="space-y-6">
                   {events.map((event, index) => (
                     <div key={event.id} className="flex gap-4">
@@ -394,8 +413,10 @@ export function GovernanceTimeline() {
                 <div className="mt-4 p-3 bg-muted rounded border border-border">
                   <div className="text-sm  text-foreground mb-1">Governance Interpretation</div>
                   <div className="text-sm text-muted-foreground">
-                    {events.length > 1 ? 
-                      `Leadership oversight present with ${events.length - 1} pre-incident activities.` : 
+                    {frozenAt
+                      ? `Based on evidence as it stood when this reconstruction was locked (${new Date(frozenAt).toLocaleDateString('en-GB')}) — not necessarily the current state.`
+                      : events.length > 1 ?
+                      `Leadership oversight present with ${events.length - 1} pre-incident activities.` :
                       'Limited oversight activities prior to incident.'}
                   </div>
                 </div>
