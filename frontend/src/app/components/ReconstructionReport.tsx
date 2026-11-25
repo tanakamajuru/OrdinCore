@@ -202,7 +202,7 @@ export function ReconstructionReport() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="print:hidden"><RoleBasedNavigation /></div>
+      <RoleBasedNavigation />
       <div className="p-6 w-full pt-20 print:pt-0 print:p-0">
         {/* Header */}
         <div className="flex items-center justify-between mb-8 print:hidden">

@@ -365,7 +365,7 @@ export function TeamLeaderDashboard() {
             <h3 className="font-bold mb-4">Escalations Requiring Follow Up</h3>
             <div className="space-y-2">
               {myEsc.slice(0, 5).map(e => (
-                <div key={e.id} className="flex items-center justify-between text-sm border-b border-border/50 pb-2 cursor-pointer hover:bg-muted/30" onClick={() => navigate("/escalation-log")}>
+                <div key={e.id} className="flex items-center justify-between text-sm border-b border-border/50 pb-2 cursor-pointer hover:bg-muted/30" onClick={() => navigate(`/escalation-log?focus=${e.id}`)}>
                   <div><div className="font-medium line-clamp-1">{e.risk_title || e.reason || "Escalation"}</div><div className="text-xs text-muted-foreground">{e.escalated_to_name || ""}</div></div>
                   <span className={`text-xs rounded px-2 py-0.5 whitespace-nowrap ${e.overdue ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{e.overdue ? "Overdue" : (e.lifecycle_status || "Under Review")}</span>
                 </div>

@@ -68,7 +68,7 @@ function ProviderWeeklyAssuranceCard() {
 
   return (
     <div className="bg-card border border-border rounded-xl p-5 shadow-sm mb-6">
-      <h3 className="font-bold mb-3">Provider Weekly Assurance</h3>
+      <h3 className="text-lg font-bold text-primary mb-3">Provider Weekly Assurance</h3>
       {status === "loading" && <p className="text-sm text-muted-foreground">Loading the signed weekly decision…</p>}
       {status === "error" && (
         <div className="flex items-center justify-between gap-3 text-sm">
@@ -91,7 +91,7 @@ function ProviderWeeklyAssuranceCard() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-sm text-muted-foreground">Week ending {fmtWeek(weekEnding)}</p>
-            <p className="text-lg font-semibold text-foreground mt-0.5">{rollup.signoff.position || "—"}</p>
+            <p className={`inline-block text-lg font-bold mt-0.5 px-2.5 py-0.5 rounded-lg ${/^assured\b/i.test(String(rollup.signoff.position || "")) ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{rollup.signoff.position || "—"}</p>
             <p className="text-xs text-muted-foreground mt-1">
               {rollup.director_validated_count ?? 0} of {rollup.included_service_count ?? rollup.sites_total ?? 0} Director validated
               {" | "}Signed {fmtWhen(rollup.signoff.acknowledged_at) || "—"}
@@ -351,7 +351,7 @@ export function ResponsibleIndividualDashboard() {
               </tr></thead>
               <tbody>
                 {openEsc.slice(0, 6).map(e => (
-                  <tr key={e.id} className="border-b border-border hover:bg-muted/30 cursor-pointer" onClick={() => navigate("/escalation-log")}>
+                  <tr key={e.id} className="border-b border-border hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/escalation-log?focus=${e.id}`)}>
                     <td className="py-2.5 px-2 border-r border-border">{e.risk_title || e.reason || "Escalation"}</td>
                     <td className="px-2 border-r border-border max-w-[160px] truncate text-muted-foreground">{e.reason}</td>
                     <td className="px-2 border-r border-border"><span className={`text-xs rounded px-2 py-0.5 ${e.overdue ? "bg-red-100 text-red-700" : "bg-muted"}`}>{e.overdue ? "Overdue" : (e.lifecycle_status || e.status)}</span></td>

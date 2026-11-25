@@ -485,7 +485,7 @@ export function DirectorDashboard() {
               </tr></thead>
               <tbody>
                 {escalations.slice((Math.min(escPage, Math.max(1, Math.ceil(escalations.length / 5))) - 1) * 5, (Math.min(escPage, Math.max(1, Math.ceil(escalations.length / 5)))) * 5).map(e => (
-                  <tr key={e.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => navigate("/escalation-log")}>
+                  <tr key={e.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/escalation-log?focus=${e.id}`)}>
                     <td className="py-2.5 pr-2">{e.risk_title || e.reason || "Escalation"}</td>
                     <td className="px-2">{e.service_name || e.house_name || "—"}</td>
                     <td className="px-2 whitespace-nowrap">{new Date(e.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</td>

@@ -1045,7 +1045,7 @@ export function IncidentCaseHub() {
                             })()}
                           </div>
                           <div className="flex flex-wrap gap-3 items-center">
-                            <select value={personDraftType} onChange={(e) => setPersonDraftType(e.target.value as IncidentPersonType)} className="h-9 px-2 rounded-md border border-border bg-background text-xs">
+                            <select value={personDraftType} onChange={(e) => { setPersonDraftType(e.target.value as IncidentPersonType); setPersonDropdownOpen(true); }} className="h-9 px-2 rounded-md border border-border bg-background text-xs">
                               <option value="client">Client</option>
                               <option value="staff">Staff</option>
                               <option value="external">External</option>

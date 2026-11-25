@@ -15,6 +15,18 @@
   }
 }
 
+/* 25 Nov 2026 field report: the Reconstruction Report page wrapped <RoleBasedNavigation /> in
+   its own `<div className="print:hidden">` so the sidebar would not appear in the exported PDF.
+   That wrapper div -- not .ordin-sidebar itself -- became the content div's actual sibling, so
+   the ".ordin-sidebar ~ *" rule above stopped matching and the content lost its left margin,
+   landing underneath the fixed sidebar. Hiding the sidebar for print belongs here instead, so
+   RoleBasedNavigation can always render as a direct sibling of the page content. */
+@media print {
+  .ordin-sidebar {
+    display: none !important;
+  }
+}
+
 /* ─── Sonner toaster must not block clicks ─────────────────────────────────────
    The top-right toaster region is position:fixed and, in Chromium (Edge/Chrome),
    its (often empty) corner area intercepted clicks on the page beneath it — which
