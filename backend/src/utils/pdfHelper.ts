@@ -376,12 +376,16 @@ export function govParagraph(doc: typeof PDFDocument, text: string, opts: { colo
   doc.x = GOV_MARGIN;
 }
 
-/** Small supporting-text line (8pt regular / 12 line-height, supporting-text colour) used for
- * secondary annotations (e.g. a single history entry) at an optional indent. */
+/** History/list-entry line (same body size/family/colour as govParagraph, left-aligned, at an
+ * optional indent) used for dated history rows (escalation/decision/action entries). 25 Nov 2026
+ * field report: this previously rendered at the smaller 8pt supporting-text size/colour while the
+ * surrounding narrative paragraphs (govParagraph) used 10pt ink text, producing a page with two
+ * different font sizes/colours and no consistent rhythm. Unified on govParagraph's BODY size/ink
+ * colour — the larger of the two — so every line on the page reads at one consistent size. */
 export function govSupportText(doc: typeof PDFDocument, text: string, opts: { indent?: number; bold?: boolean } = {}): void {
   const indent = opts.indent || 0;
-  doc.font(opts.bold ? GOV_FONT_BOLD : GOV_FONT_REGULAR).fontSize(GOV_TYPE.SUPPORT.size).fillColor(GOV_COLORS.SUPPORT_TEXT)
-    .text(text, GOV_MARGIN + indent, doc.y, { width: GOV_CONTENT_WIDTH - indent, lineGap: govLineGap(GOV_TYPE.SUPPORT) });
+  doc.font(opts.bold ? GOV_FONT_BOLD : GOV_FONT_REGULAR).fontSize(GOV_TYPE.BODY.size).fillColor(GOV_COLORS.INK)
+    .text(text, GOV_MARGIN + indent, doc.y, { width: GOV_CONTENT_WIDTH - indent, lineGap: govLineGap(GOV_TYPE.BODY) });
   doc.fillColor(GOV_COLORS.INK).font(GOV_FONT_REGULAR).fontSize(GOV_TYPE.BODY.size);
   doc.x = GOV_MARGIN;
 }
