@@ -4,7 +4,7 @@ import { Home, Activity, FileText, AlertTriangle, TrendingUp, Users, FileDown, B
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { apiClient } from "@/services/api";
-import logo from "./images/logo.png";
+import logo from "./images/logo-wordmark.png";
 import { ControlledScreenAssist } from "./ControlledScreenAssist";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
@@ -314,9 +314,10 @@ export function RoleBasedNavigation() {
     )}
     <aside className={`ordin-sidebar fixed inset-y-0 left-0 w-56 bg-slate-900 text-slate-300 flex flex-col z-40 transition-transform duration-200 ${navCollapsed ? "-translate-x-full" : ""}`}>
       <div className="flex items-center gap-2 px-4 py-3 min-h-[4.5rem] border-b border-slate-800 shrink-0">
-        <img src={logo} alt="Ordin Core" className="h-14 w-auto" />
         <div className="leading-tight">
-          <p className="text-white font-semibold text-sm tracking-wide">ORDIN CORE</p>
+          <div className="bg-white rounded-md px-2 py-1 inline-block mb-1">
+            <img src={logo} alt="Ordin Core" className="h-6 w-auto block" />
+          </div>
           <p className="text-[10px] text-white/80">Governance. Evidence. Assurance.</p>
         </div>
         {/* Attention bell: amber (pulsing) when something needs attention — open escalations or
@@ -392,15 +393,15 @@ export function RoleBasedNavigation() {
       <div className="border-t border-slate-800 p-3 shrink-0">
         <button
           onClick={() => navigate("/profile")}
-          className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-slate-800 transition-colors"
+          className="w-full flex items-center gap-3 px-2 py-2 rounded-lg bg-white hover:bg-slate-100 transition-colors"
           title="View profile"
         >
           <span className="w-9 h-9 rounded-full bg-primary/20 text-primary border border-primary/40 flex items-center justify-center text-xs font-semibold shrink-0">
             {initials}
           </span>
           <span className="leading-tight text-left min-w-0">
-            <span className="block text-sm text-white truncate">{getRoleLabel()}</span>
-            <span className="block text-[11px] text-slate-400 truncate">{houseName || displayName}</span>
+            <span className="block text-sm text-slate-900 truncate">{getRoleLabel()}</span>
+            <span className="block text-[11px] text-slate-500 truncate">{houseName || displayName}</span>
           </span>
         </button>
         <button onClick={handleLogout} className="mt-1 w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-slate-800 text-slate-300">
