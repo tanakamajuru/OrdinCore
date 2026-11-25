@@ -33,8 +33,8 @@ function StatCard({ icon: Icon, label, value, tone, delta, deltaTone, viewLabel,
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="text-2xl font-semibold mt-1 text-foreground">{value}</p>
+          <p className="text-xs font-bold text-muted-foreground">{label}</p>
+          <p className="text-2xl font-bold mt-1 text-foreground">{value}</p>
         </div>
         <div className={`p-2 rounded-lg ${tone}`}><Icon className="w-5 h-5" /></div>
       </div>
@@ -191,7 +191,7 @@ export function TeamLeaderDashboard() {
         {/* Header */}
         <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Team Leader Dashboard</h1>
+            <h1 className="text-2xl font-bold text-foreground">Team Leader Dashboard</h1>
             <p className="text-sm text-muted-foreground">Overview of your signals, actions and team activity</p>
           </div>
           <div className="flex flex-col items-end gap-3">
@@ -270,7 +270,7 @@ export function TeamLeaderDashboard() {
         {/* Theme donut + Recent signals */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Signals by Theme <span className="text-xs font-normal text-muted-foreground">(This Month)</span></h3>
+            <h3 className="font-bold mb-4">Signals by Theme <span className="text-xs font-normal text-muted-foreground">(This Month)</span></h3>
             <div className="flex items-center gap-4">
               <div className="relative w-32 h-32">
                 <ResponsiveContainer width="100%" height="100%">
@@ -303,7 +303,7 @@ export function TeamLeaderDashboard() {
           </div>
 
           <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Recent Signals</h3>
+            <h3 className="font-bold mb-4">Recent Signals</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-left text-xs text-muted-foreground border-b border-border">
@@ -334,7 +334,7 @@ export function TeamLeaderDashboard() {
         {/* Three panels */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">My Actions</h3>
+            <h3 className="font-bold mb-4">My Actions</h3>
             <div className="space-y-2">
               {myActions.slice(0, 5).map(a => (
                 <div key={a.id} className="flex items-center justify-between text-sm border-b border-border/50 pb-2 cursor-pointer hover:bg-muted/30" onClick={() => navigate("/my-actions")}>
@@ -348,7 +348,7 @@ export function TeamLeaderDashboard() {
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Actions Due Soon</h3>
+            <h3 className="font-bold mb-4">Actions Due Soon</h3>
             <div className="space-y-2">
               {dueSoon.slice(0, 5).map(a => (
                 <div key={a.id} className="flex items-center justify-between text-sm border-b border-border/50 pb-2">
@@ -362,7 +362,7 @@ export function TeamLeaderDashboard() {
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Escalations Requiring Follow Up</h3>
+            <h3 className="font-bold mb-4">Escalations Requiring Follow Up</h3>
             <div className="space-y-2">
               {myEsc.slice(0, 5).map(e => (
                 <div key={e.id} className="flex items-center justify-between text-sm border-b border-border/50 pb-2 cursor-pointer hover:bg-muted/30" onClick={() => navigate("/escalation-log")}>
@@ -379,7 +379,7 @@ export function TeamLeaderDashboard() {
         {/* Quick actions + What's new */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
           <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Quick Actions</h3>
+            <h3 className="font-bold mb-4">Quick Actions</h3>
             {/* De-duplicated: the stat cards + header already link to signals, actions,
                 escalations and Record Signal — only genuinely new entry points remain here. */}
             <div className="grid grid-cols-3 gap-3">
@@ -397,7 +397,7 @@ export function TeamLeaderDashboard() {
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">What's New</h3>
+            <h3 className="font-bold mb-4">What's New</h3>
             <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/15">
               <span className="px-2 py-0.5 rounded bg-primary/15 text-primary text-[10px] font-semibold mt-0.5">NEW</span>
               <div className="text-sm">

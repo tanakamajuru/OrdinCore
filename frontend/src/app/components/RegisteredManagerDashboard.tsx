@@ -26,8 +26,8 @@ function StatCard({ icon: Icon, label, value, tone, footer, onClick }: any) {
     >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="text-2xl font-semibold mt-1 text-foreground">{value}</p>
+          <p className="text-xs font-bold text-muted-foreground">{label}</p>
+          <p className="text-2xl font-bold mt-1 text-foreground">{value}</p>
         </div>
         <div className={`p-2 rounded-lg ${tone}`}><Icon className="w-5 h-5" /></div>
       </div>
@@ -40,7 +40,7 @@ function Panel({ title, count, children }: any) {
   return (
     <div className="bg-card border border-border rounded-xl p-5 shadow-sm flex flex-col">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-foreground flex items-center gap-2">
+        <h3 className="font-bold text-foreground flex items-center gap-2">
           {title}
           {count != null && count > 0 && <span className="text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5">{count}</span>}
         </h3>
@@ -165,7 +165,7 @@ export function RegisteredManagerDashboard() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Registered Manager Dashboard</h1>
+            <h1 className="text-2xl font-bold text-foreground">Registered Manager Dashboard</h1>
             <p className="text-sm text-muted-foreground">Your navigator — headline counts and one click to the surface that owns the detail{house?.name ? ` · ${house.name}` : ""}</p>
           </div>
         </div>
@@ -175,7 +175,7 @@ export function RegisteredManagerDashboard() {
           <div className="mb-6 bg-card border border-red-300 rounded-xl p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-4 text-red-700">
               <Shield className="w-5 h-5" />
-              <h3 className="font-semibold">Outstanding RI Governance Queries</h3>
+              <h3 className="font-bold">Outstanding RI Governance Queries</h3>
               <span className="text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5">{riQueries.length}</span>
             </div>
             <div className="space-y-3">
@@ -255,7 +255,7 @@ export function RegisteredManagerDashboard() {
           </Panel>
 
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold text-foreground mb-4">Jump to</h3>
+            <h3 className="font-bold text-foreground mb-4">Jump to</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {jumpTo.map((j) => (
                 <button key={j.path} onClick={() => navigate(j.path)}

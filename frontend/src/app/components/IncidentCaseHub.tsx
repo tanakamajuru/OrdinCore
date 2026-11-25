@@ -1011,8 +1011,19 @@ export function IncidentCaseHub() {
                                 fine (the directory counts below proved it) but the picker looked dead.
                                 Rendered inline instead, so it always pushes the form down and is never
                                 clipped. */}
-                            {personDropdownOpen && personDraftName.trim() && (() => {
-                              const matches = people.filter((p) => p.name.toLowerCase().includes(personDraftName.trim().toLowerCase())).slice(0, 8);
+                            {/* 25 Nov 2026 field report: previously only showed once the user had already
+                                typed a name, so picking the person type (Client/Staff) and clicking
+                                straight into "Add person" never surfaced a list to choose from. Now opens
+                                on focus with the full directory for the selected type, narrowing as they
+                                type -- "Client"/"Staff" filters which list is shown; External/Unknown have
+                                no directory to search, so no dropdown is offered for those. */}
+                            {personDropdownOpen && (personDraftType === 'client' || personDraftType === 'staff') && (() => {
+                              const wantKind = personDraftType === 'staff' ? 'Staff' : 'Service User';
+                              const term = personDraftName.trim().toLowerCase();
+                              const matches = people
+                                .filter((p) => p.kind === wantKind)
+                                .filter((p) => !term || p.name.toLowerCase().includes(term))
+                                .slice(0, 8);
                               return matches.length > 0 ? (
                                 <div className="mt-1 w-full border-2 border-border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y divide-border">
                                   {matches.map((p, i) => (

@@ -30,7 +30,7 @@ function StatCard({ icon: Icon, label, value, sub, tone }: any) {
   return (
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
       <div className="flex items-start justify-between">
-        <div><p className="text-xs text-muted-foreground">{label}</p><p className="text-2xl font-semibold mt-1 text-foreground">{value}</p></div>
+        <div><p className="text-xs font-bold text-muted-foreground">{label}</p><p className="text-2xl font-bold mt-1 text-foreground">{value}</p></div>
         <div className={`p-2 rounded-lg ${tone}`}><Icon className="w-5 h-5" /></div>
       </div>
       {sub && <p className="mt-2 text-[11px] text-muted-foreground">{sub}</p>}
@@ -133,7 +133,7 @@ const AdminDashboardSimple: React.FC = () => {
       <div className="ml-64 p-6 max-w-[1400px]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Admin Dashboard</h1>
+            <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
             <p className="text-sm text-muted-foreground">System overview and administration</p>
           </div>
           <div className="flex gap-2">
@@ -153,15 +153,15 @@ const AdminDashboardSimple: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Users by Role</h3>
+            <h3 className="font-bold mb-4">Users by Role</h3>
             <Donut data={roleData} />
           </div>
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Escalations by Status</h3>
+            <h3 className="font-bold mb-4">Escalations by Status</h3>
             <Donut data={lifecycleDonut} />
           </div>
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Data Overview</h3>
+            <h3 className="font-bold mb-4">Data Overview</h3>
             <div className="grid grid-cols-2 gap-4">
               {[
                 { label: 'Total Signals', value: signals.length },
@@ -180,7 +180,7 @@ const AdminDashboardSimple: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Escalation Rules Overview</h3>
+            <h3 className="font-bold mb-4">Escalation Rules Overview</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-left text-xs text-muted-foreground border-b border-border">
@@ -202,7 +202,7 @@ const AdminDashboardSimple: React.FC = () => {
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Quick Actions</h3>
+            <h3 className="font-bold mb-4">Quick Actions</h3>
             <div className="space-y-2">
               <button onClick={() => navigate('/admin-users')} className="w-full text-left px-4 py-2.5 rounded-lg border border-border hover:bg-muted text-sm flex items-center gap-2"><Users className="w-4 h-4 text-primary" /> Manage Users</button>
               <button onClick={() => navigate('/admin-houses')} className="w-full text-left px-4 py-2.5 rounded-lg border border-border hover:bg-muted text-sm flex items-center gap-2"><Building className="w-4 h-4 text-primary" /> Manage Services</button>

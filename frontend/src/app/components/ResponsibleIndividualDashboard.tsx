@@ -21,7 +21,7 @@ function StatCard({ icon: Icon, label, value, tone, footer }: any) {
   return (
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
       <div className="flex items-start justify-between">
-        <div><p className="text-xs text-muted-foreground">{label}</p><p className="text-2xl font-semibold mt-1 text-foreground">{value}</p></div>
+        <div><p className="text-xs font-bold text-muted-foreground">{label}</p><p className="text-2xl font-bold mt-1 text-foreground">{value}</p></div>
         <div className={`p-2 rounded-lg ${tone}`}><Icon className="w-5 h-5" /></div>
       </div>
       {footer && <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">{footer}</div>}
@@ -68,7 +68,7 @@ function ProviderWeeklyAssuranceCard() {
 
   return (
     <div className="bg-card border border-border rounded-xl p-5 shadow-sm mb-6">
-      <h3 className="font-semibold mb-3">Provider Weekly Assurance</h3>
+      <h3 className="font-bold mb-3">Provider Weekly Assurance</h3>
       {status === "loading" && <p className="text-sm text-muted-foreground">Loading the signed weekly decision…</p>}
       {status === "error" && (
         <div className="flex items-center justify-between gap-3 text-sm">
@@ -240,7 +240,7 @@ export function ResponsibleIndividualDashboard() {
       <div className="p-6 max-w-[1500px]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Responsible Individual Dashboard</h1>
+            <h1 className="text-2xl font-bold text-foreground">Responsible Individual Dashboard</h1>
             <p className="text-sm text-muted-foreground">Assurance overview and governance oversight</p>
           </div>
           <button onClick={() => navigate("/reports")} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90">
@@ -283,7 +283,7 @@ export function ResponsibleIndividualDashboard() {
           return (
             <div className="bg-card border border-border rounded-xl p-5 shadow-sm mb-6">
               <div className="flex items-baseline justify-between mb-3">
-                <h3 className="font-semibold">Assurance questions</h3>
+                <h3 className="font-bold">Assurance questions</h3>
                 <span className="text-xs text-muted-foreground">{assuranceSummary.scope} · {assuranceSummary.period} · the system supplies evidence; the RI records the conclusion</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -301,7 +301,7 @@ export function ResponsibleIndividualDashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Strategic Risk Summary <span className="text-xs text-muted-foreground font-normal">(All Services)</span></h3>
+            <h3 className="font-bold mb-4">Strategic Risk Summary <span className="text-xs text-muted-foreground font-normal">(All Services)</span></h3>
             <Donut data={[
               { name: "Rising", value: rising, color: "#ef4444" },
               { name: "Stable", value: Math.max(stable, 0), color: "#f59e0b" },
@@ -309,7 +309,7 @@ export function ResponsibleIndividualDashboard() {
             ]} />
           </div>
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-1">Governance cycle status</h3>
+            <h3 className="font-bold mb-1">Governance cycle status</h3>
             <p className="text-sm text-foreground mb-3">
               {reviewsPending === 0
                 ? "All expected governance reviews are complete for the current period."
@@ -321,7 +321,7 @@ export function ResponsibleIndividualDashboard() {
             ]} />
           </div>
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-1">Escalation assurance</h3>
+            <h3 className="font-bold mb-1">Escalation assurance</h3>
             <p className="text-sm text-foreground mb-3">
               {overdueEsc === 0
                 ? "Current escalations are owned and within required review arrangements."
@@ -343,18 +343,18 @@ export function ResponsibleIndividualDashboard() {
             framework — there is deliberately no second "Key Assurance Questions" panel here
             (RI Assurance Interface correction, 14 Oct 2026). */}
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-          <h3 className="font-semibold mb-4">Open Escalations Requiring RI Oversight</h3>
+          <h3 className="font-bold mb-4">Open Escalations Requiring RI Oversight</h3>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead><tr className="text-left text-xs text-muted-foreground border-b border-border">
-                <th className="py-2 pr-2">Escalation</th><th className="px-2">Reason</th><th className="px-2">Status</th><th className="px-2">Days Open</th>
+            <table className="w-full text-sm border border-border">
+              <thead><tr className="text-left text-xs font-bold text-muted-foreground bg-muted/40 border-b border-border">
+                <th className="py-2 px-2 border-r border-border">Escalation</th><th className="px-2 border-r border-border">Reason</th><th className="px-2 border-r border-border">Status</th><th className="px-2">Days Open</th>
               </tr></thead>
               <tbody>
                 {openEsc.slice(0, 6).map(e => (
-                  <tr key={e.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => navigate("/escalation-log")}>
-                    <td className="py-2.5 pr-2">{e.risk_title || e.reason || "Escalation"}</td>
-                    <td className="px-2 max-w-[160px] truncate text-muted-foreground">{e.reason}</td>
-                    <td className="px-2"><span className={`text-xs rounded px-2 py-0.5 ${e.overdue ? "bg-red-100 text-red-700" : "bg-muted"}`}>{e.overdue ? "Overdue" : (e.lifecycle_status || e.status)}</span></td>
+                  <tr key={e.id} className="border-b border-border hover:bg-muted/30 cursor-pointer" onClick={() => navigate("/escalation-log")}>
+                    <td className="py-2.5 px-2 border-r border-border">{e.risk_title || e.reason || "Escalation"}</td>
+                    <td className="px-2 border-r border-border max-w-[160px] truncate text-muted-foreground">{e.reason}</td>
+                    <td className="px-2 border-r border-border"><span className={`text-xs rounded px-2 py-0.5 ${e.overdue ? "bg-red-100 text-red-700" : "bg-muted"}`}>{e.overdue ? "Overdue" : (e.lifecycle_status || e.status)}</span></td>
                     <td className="px-2">{Math.max(0, Math.round((Date.now() - new Date(e.created_at).getTime()) / 86400000))}</td>
                   </tr>
                 ))}

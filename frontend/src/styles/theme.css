@@ -35,8 +35,12 @@
   --warning-foreground: #FFFFFF;
   --destructive: #D32F2F;
   --destructive-foreground: #FFFFFF;
-  --border: #D6E0EE;            /* Palette: line */
-  --input: #A9B9D0;             /* Palette: line-strong */
+  --border: #A9B9D0;            /* 25 Nov 2026: darkened from the original #D6E0EE "line" token
+                                    (too light to read as a card/section edge) to the palette's
+                                    "line-strong" value, per field report that all card/section
+                                    borders needed to be darker/more visible. */
+  --input: #7E93B8;             /* Darkened one step further so inputs stay visually distinct
+                                    from the now-darker card border above. */
   --input-background: #FFFFFF;
   --switch-background: #A9B9D0;
   --font-weight-medium: 400;
@@ -58,7 +62,7 @@
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #E5EEFF;     /* Palette: accent-soft */
   --sidebar-accent-foreground: #0047C2; /* Palette: accent-ink */
-  --sidebar-border: #D6E0EE;
+  --sidebar-border: #A9B9D0;
   --sidebar-ring: #005CF8;
 }
 
@@ -84,8 +88,13 @@
   --warning-foreground: #FFFFFF;
   --destructive: #D32F2F;
   --destructive-foreground: #FFFFFF;
-  --border: #1F3363;            /* Palette: line */
-  --input: #34508A;             /* Palette: line-strong */
+  --border: #34508A;            /* 25 Nov 2026: bumped from the original #1F3363 "line" token to
+                                    "line-strong" — on this dark theme's near-black surfaces, more
+                                    contrast means a lighter/stronger border, not a literally
+                                    darker one, to match the same "clearly visible card/section
+                                    edge" request applied to the light theme above. */
+  --input: #4C6DA8;             /* One step stronger again so inputs stay distinct from the card
+                                    border above. */
   --input-background: #0B1A3D;
   --switch-background: #34508A;
   --ring: #1A66F5;
@@ -103,7 +112,7 @@
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #0F2A66;     /* Palette: accent-soft */
   --sidebar-accent-foreground: #8DB8FF; /* Palette: accent-ink */
-  --sidebar-border: #1F3363;
+  --sidebar-border: #34508A;
   --sidebar-ring: #1A66F5;
 }
 

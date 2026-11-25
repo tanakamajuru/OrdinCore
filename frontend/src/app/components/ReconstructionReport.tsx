@@ -54,7 +54,6 @@ export function ReconstructionReport() {
   // Ensure we get 'id' if 'incidentId' isn't explicitly defined in the route params name
   const params = useParams();
   const incidentId = params.incidentId || params.id;
-  const [isGenerating, setIsGenerating] = useState(false);
   // Reconstruction packs export as PDF (narrative inspection evidence); raw-data CSV
   // export lives on the Reports page. Word/Excel were dropped for format consistency.
   const [reportFormat] = useState<"pdf">("pdf");
@@ -71,7 +70,6 @@ export function ReconstructionReport() {
   // fabricated metric would otherwise appear — never default to "Oversight Present".
   const [evidenceUnavailable, setEvidenceUnavailable] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [existingReport, setExistingReport] = useState<any>(null);
 
 
   useEffect(() => {
@@ -139,22 +137,6 @@ export function ReconstructionReport() {
         // as real escalation/response-time figures below.
         setEvidenceUnavailable(true);
       }
-      
-      
-      // Check for existing reports
-      try {
-        const reportsRes = await apiClient.get('/reports?limit=100');
-        const reportsData = (reportsRes.data as any).data || (reportsRes.data as any);
-        const allReports = Array.isArray(reportsData) ? reportsData : (reportsData.reports || []);
-        const report = allReports.find((r: any) => 
-          r.type === 'reconstruction_report' && 
-          r.parameters?.incident_id === id && 
-          r.status === 'completed'
-        );
-        setExistingReport(report);
-      } catch (err) {
-        console.error("Failed to check for existing reports", err);
-      }
     } catch (err) {
       console.error("Failed to load incident report data", err);
     } finally {
@@ -163,52 +145,15 @@ export function ReconstructionReport() {
   };
 
 
-  const generateReport = async () => {
-    if (existingReport && existingReport.status === 'completed') {
-      handleDownload(existingReport.id);
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      const requestPayload = {
-        type: "reconstruction_report",
-        name: `Reconstruction Report - ${incident?.id || incidentId}`,
-        parameters: {
-          incident_id: incidentId
-        }
-      };
-      
-      await apiClient.post('/reports/request', requestPayload);
-
-      alert(`Report generation requested! You can download it from the Reports page once ready.`);
-      navigate('/reports');
-    } catch (err: any) {
-      console.error('Failed to request report:', err);
-      alert(`Failed to request report: ${err.response?.data?.message || err.message}`);
-    } finally {
-      setIsGenerating(false);
-    }
+  // 25 Nov 2026 field report: "Download Full Report" used to POST /reports/request (which only
+  // queues an async job) then alert + navigate the user away to /reports to fetch it later —
+  // so clicking "download" never actually downloaded anything, it just left the page. This
+  // report's full content is already rendered on screen, so export it directly via the
+  // browser's print-to-PDF instead of round-tripping through the async report queue. The nav/
+  // buttons are hidden for print via the `print:hidden` classes below.
+  const generateReport = () => {
+    window.print();
   };
-
-  const handleDownload = async (reportId: string) => {
-    try {
-      const res = await apiClient.get(`/reports/${reportId}/download`);
-      const data = (res.data as any).data || res;
-      if (data.file_url) {
-        const downloadUrl = data.file_url.startsWith('http') 
-          ? data.file_url 
-          : `${(import.meta.env.VITE_API_URL || '').replace('/api/v1', '')}${data.file_url}`;
-        window.open(downloadUrl, '_blank');
-      } else {
-        alert('Download URL not available yet.');
-      }
-    } catch (err) {
-      console.error('Download failed:', err);
-      alert('Failed to download report');
-    }
-  };
-
 
   const exportTimeline = () => {
     // In real implementation, this would export timeline data
@@ -257,10 +202,10 @@ export function ReconstructionReport() {
 
   return (
     <div className="min-h-screen bg-background">
-      <RoleBasedNavigation />
-      <div className="p-6 w-full pt-20">
+      <div className="print:hidden"><RoleBasedNavigation /></div>
+      <div className="p-6 w-full pt-20 print:pt-0 print:p-0">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 print:hidden">
           <div className="flex items-center gap-4">
             <Button
               variant="outline"
@@ -275,16 +220,15 @@ export function ReconstructionReport() {
               <p className="text-muted-foreground">Official oversight documentation for {(incident as any).title || 'this incident'}</p>
             </div>
           </div>
-          
+
           <div className="flex gap-3">
             <span className="px-3 py-2 border-2 border-border rounded text-sm text-muted-foreground">PDF</span>
             <Button
               onClick={generateReport}
-              disabled={isGenerating}
               className="bg-primary text-primary-foreground hover:bg-[#008394]"
             >
               <Download className="w-4 h-4 mr-2" />
-              {isGenerating ? "Generating..." : `Export ${reportFormat.toUpperCase()}`}
+              {`Export ${reportFormat.toUpperCase()}`}
             </Button>
           </div>
         </div>
@@ -590,14 +534,13 @@ export function ReconstructionReport() {
         </Card>
 
         {/* Export Actions */}
-        <div className="flex gap-4 justify-center">
+        <div className="flex gap-4 justify-center print:hidden">
           <Button
             onClick={generateReport}
-            disabled={isGenerating}
             className="bg-primary text-primary-foreground hover:bg-[#008394] px-8"
           >
             <Download className="w-4 h-4 mr-2" />
-            {isGenerating ? "Generating..." : "Download Full Report"}
+            Download Full Report
           </Button>
           <Button
             variant="outline"

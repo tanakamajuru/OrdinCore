@@ -23,8 +23,8 @@ function StatCard({ icon: Icon, label, value, tone, footer }: any) {
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="text-2xl font-semibold mt-1 text-foreground">{value}</p>
+          <p className="text-xs font-bold text-muted-foreground">{label}</p>
+          <p className="text-2xl font-bold mt-1 text-foreground">{value}</p>
         </div>
         <div className={`p-2 rounded-lg ${tone}`}><Icon className="w-5 h-5" /></div>
       </div>
@@ -115,7 +115,7 @@ function ServicesOverview({ navigate }: { navigate: (path: string) => void }) {
   return (
     <div className="bg-card border border-border rounded-xl p-5 shadow-sm mt-6">
       <div className="flex items-center justify-between mb-1">
-        <h3 className="font-semibold">Services Overview</h3>
+        <h3 className="font-bold">Services Overview</h3>
         <div className="flex items-center gap-3">
           {state === "ready" && overview?.generated_at && (
             <span className="text-[11px] text-muted-foreground">Updated {new Date(overview.generated_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
@@ -345,7 +345,7 @@ export function DirectorDashboard() {
       <div className="p-6 max-w-[1500px]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Director Dashboard</h1>
+            <h1 className="text-2xl font-bold text-foreground">Director Dashboard</h1>
             <p className="text-sm text-muted-foreground">Strategic oversight across all services</p>
           </div>
           <button onClick={() => navigate("/reports")} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90">
@@ -374,7 +374,7 @@ export function DirectorDashboard() {
         {/* Risk Heat Map — full width so every service row and theme column is visible
             at once, without horizontal scrolling. */}
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm mb-6">
-          <h3 className="font-semibold mb-1">Risk Heat Map <span className="text-xs text-muted-foreground font-normal">(By Service & Theme)</span></h3>
+          <h3 className="font-bold mb-1">Risk Heat Map <span className="text-xs text-muted-foreground font-normal">(By Service & Theme)</span></h3>
           <p className="text-[11px] text-muted-foreground mb-3">Each cell is the worst-trending open risk for that service and theme. Hover a cell for the open risk count and what the colour means.</p>
           <div className="overflow-x-auto">
             <table className="w-full text-xs min-w-max">
@@ -393,7 +393,7 @@ export function DirectorDashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Risks by Trend <span className="text-xs text-muted-foreground font-normal">({rmRisksOpen} open)</span></h3>
+            <h3 className="font-bold mb-4">Risks by Trend <span className="text-xs text-muted-foreground font-normal">({rmRisksOpen} open)</span></h3>
             <Donut data={[
               { name: "Rising / Deteriorating", value: rising, color: "#ef4444" },
               { name: "Stable", value: Math.max(stable, 0), color: "#f59e0b" },
@@ -402,7 +402,7 @@ export function DirectorDashboard() {
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-1">Escalations by Status</h3>
+            <h3 className="font-bold mb-1">Escalations by Status</h3>
             <p className="text-[11px] text-muted-foreground mb-3">
               Mutually-exclusive lifecycle stages — these bars sum to {Number(escStats.open || 0)} open{Number(escStats.closed || 0) ? ` (+ ${Number(escStats.closed)} closed, not shown)` : ""}.
             </p>
@@ -430,7 +430,7 @@ export function DirectorDashboard() {
                 historical cards after the active ones, so a historical plan could occupy a
                 "top" slot. Ranked by recorded risk rating, then deterioration count, then
                 overdue reviews/actions — a disclosed rule, not an inferred systemic cause. */}
-            <h3 className="font-semibold mb-1">Current Registered Risk Themes <span className="text-xs text-muted-foreground font-normal">(direction of travel)</span></h3>
+            <h3 className="font-bold mb-1">Current Registered Risk Themes <span className="text-xs text-muted-foreground font-normal">(direction of travel)</span></h3>
             <p className="text-[11px] text-muted-foreground mb-3">Ranked by highest recorded risk rating, then deterioration, then overdue work. Open the Intervention Panel to act.</p>
             <div className="space-y-2">
               {(() => {
@@ -477,7 +477,7 @@ export function DirectorDashboard() {
         <ServicesOverview navigate={navigate} />
 
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-          <h3 className="font-semibold mb-4">Recent Escalations</h3>
+          <h3 className="font-bold mb-4">Recent Escalations</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="text-left text-xs text-muted-foreground border-b border-border">
