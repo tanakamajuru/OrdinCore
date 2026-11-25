@@ -14,7 +14,11 @@ export interface WeekEvent {
   theme: string;
   signals?: Array<{ id:string; person?:string|null; domain?:string|null; description:string; severity?:string|null; reviewStatus?:string|null; decision?:string|null; decisionId?:string|null;
     // Full decision substance so the report explains the decision, not just its label (briefs R1–R3).
-    concern?:string|null; rationale?:string|null; intendedOutcome?:string|null; decisionEvidence?:string|null; reviewer?:string|null; decidedAt?:string|null; followUpDue?:string|null }>;
+    concern?:string|null; rationale?:string|null; intendedOutcome?:string|null; decisionEvidence?:string|null; reviewer?:string|null; decidedAt?:string|null; followUpDue?:string|null;
+    // 25 Nov 2026: the PDF export (weeklyReviews.controller.ts downloadPdf) already rendered these
+    // three fields per signal; this screen silently dropped them, so the two "same canonical
+    // report" outputs actually disagreed on what the RM recorded. Added for parity.
+    signalImmediateAction?:string|null; immediateAction?:string|null; monitoringTrigger?:string|null }>;
 }
 
 export interface MajorIssue {

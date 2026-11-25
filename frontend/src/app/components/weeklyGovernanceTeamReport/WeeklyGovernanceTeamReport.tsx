@@ -131,7 +131,10 @@ export function WeeklyGovernanceTeamReport({ report, onAcknowledge }: Props) {
                         {sig.reviewer ? ` · ${sig.reviewer}` : ""}{decidedAt ? ` · ${decidedAt}` : ""}
                       </p>
                       <p className="text-muted-foreground">Rationale: {sig.rationale || "Rationale not recorded"}</p>
+                      {sig.signalImmediateAction && <p className="text-muted-foreground">Immediate action taken: {sig.signalImmediateAction}</p>}
                       {sig.intendedOutcome && <p className="text-muted-foreground">Intended outcome: {sig.intendedOutcome}</p>}
+                      {sig.immediateAction && <p className="text-muted-foreground">Immediate action (decision): {sig.immediateAction}</p>}
+                      {sig.monitoringTrigger && <p className="text-muted-foreground">Act sooner if: {sig.monitoringTrigger}</p>}
                       {sig.decisionEvidence && <p className="text-muted-foreground">Evidence: {sig.decisionEvidence}</p>}
                       {followUp && <p className="text-muted-foreground">Follow-up due: {followUp}</p>}
                     </div>

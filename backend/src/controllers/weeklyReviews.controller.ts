@@ -428,7 +428,22 @@ export class WeeklyReviewsController {
         });
         doc.fontSize(11).fillColor('#000');
       }
-      if (c.anticipated_risks?.rm_note) { section('What to expect next week'); doc.text(c.anticipated_risks.rm_note); }
+      // 25 Nov 2026 field-mapping fix: this previously rendered only the free-text rm_note, while
+      // the Team Leader screen (mapWeeklyReviewToTeamReport.ts) builds its "Next week" section from
+      // the itemised anticipated_risks.items (theme/reason) and never reads rm_note at all -- so
+      // the PDF and the screen could show completely different "what's coming next" content from
+      // the same review. Render both: the itemised list (same source the screen uses) first, with
+      // the RM's free-text note as an additional closing line when recorded.
+      const nextWeekItems: any[] = Array.isArray(c.anticipated_risks?.items) ? c.anticipated_risks.items : [];
+      if (nextWeekItems.length || c.anticipated_risks?.rm_note) {
+        section('What to expect next week');
+        nextWeekItems.forEach((item: any) => {
+          const priority = item.theme || 'Priority';
+          const expectation = item.reason || '';
+          doc.text(expectation ? `• ${priority}: ${expectation}` : `• ${priority}`);
+        });
+        if (c.anticipated_risks?.rm_note) doc.text(c.anticipated_risks.rm_note);
+      }
 
       doc.moveDown(1).font('Helvetica-Oblique').fontSize(8).fillColor('#888')
         .text(`Generated ${new Date().toLocaleString('en-GB')} · OrdinCore governance record${rev.status === 'published' || rev.status === 'LOCKED' ? ' · locked' : ''}`);
