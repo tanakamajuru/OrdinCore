@@ -469,6 +469,13 @@ export class WeeklyReviewsService {
     const ap = data.auto_population || {};
     const signals: any[] = Array.isArray(ap.signals) ? ap.signals : [];
     const hi = signals.filter((s) => ['High', 'Critical'].includes(s.severity)).length;
+    // 24 Nov 2026 brief ("Weekly Review: minimal-risk corrections"): the draft previously used only
+    // aggregate counts and asked the model to invent learning. Reusing prepareReview's own
+    // weekly_evidence.daily_briefs here (same data retrieval/authorisation already used to render
+    // the Collective Daily Team Briefing section) grounds the draft in what was actually recorded
+    // each completed day, not just totals. Excludes drafts (daily_briefs is already completed +
+    // published only) and other services (already scoped to this house_id).
+    const dailyBriefs: any[] = Array.isArray(data.weekly_evidence?.daily_briefs) ? data.weekly_evidence.daily_briefs : [];
 
     // A compact, factual snapshot — the ONLY thing the model is allowed to use.
     const facts = {
@@ -483,19 +490,23 @@ export class WeeklyReviewsService {
       active_risks: (ap.active_risks || []).map((r: any) => ({ title: r.title, trajectory: r.current_trajectory, last_effectiveness: r.last_effectiveness })),
       leadership_interventions: (ap.interventions || []).map((i: any) => ({ theme: i.theme, intervention: i.intervention, status: i.status, owner: i.owner_name })),
       overall_position_selected: data?.content?.step14_overall_position || null,
+      completed_daily_governance_reviews: dailyBriefs.map((b: any) => ({ date: b.date, review: b.summary })),
     };
 
     const system = [
       'You are a governance assistant for a UK CQC-regulated care provider, drafting the weekly governance review narrative.',
       'Write in measured, professional, regulator-ready British English. Be concise and specific.',
+      'Summarise only the supplied completed Daily Governance Reviews. Consolidate repetition.',
+      'Report recorded events, decisions, monitoring, outcomes and outstanding concerns. Do not invent actions, recommendations, opinions, learning or effectiveness.',
+      'If information is missing, say it was not recorded. Return a concise factual narrative; do not generate new lessons.',
       'CRITICAL GROUNDING RULES:',
       '- Use ONLY the data provided in the user message. Do NOT invent, infer, or assume anything about residents, staff, or events.',
       '- If something is not in the data, do not mention it. Never state a number that is not in the data.',
       '- Do not use residents\' full names. Refer to people generically unless an initial/label is provided.',
       '- The tone reflects leadership oversight: what the picture is, what is being done about it, and the position.',
-      'Return STRICT JSON with exactly two string fields: "narrative" (2-4 short paragraphs) and "lessons_learnt" (2-4 sentences).',
+      'Return STRICT JSON with exactly two string fields: "narrative" (2-4 short paragraphs, factual summary only) and "lessons_learnt" (leave this an empty string — the Registered Manager records learning directly, never generated).',
     ].join('\n');
-    const user = `Draft the weekly governance review narrative and lessons learnt for this service and week. Data (JSON):\n${JSON.stringify(facts, null, 2)}`;
+    const user = `Draft the weekly governance review narrative for this service and week. Data (JSON):\n${JSON.stringify(facts, null, 2)}`;
 
     let out = await aiService.generateJSON<{ narrative?: string; lessons_learnt?: string; text?: string }>(system, user, 900);
     let narrative = out.narrative || out.text || '';

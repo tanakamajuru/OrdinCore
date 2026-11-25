@@ -29,6 +29,93 @@ function StatCard({ icon: Icon, label, value, tone, footer }: any) {
   );
 }
 
+// 24 Nov 2026 brief ("RI dashboard: Provider Weekly Assurance"): the signed Provider Weekly
+// Assurance decision was only visible in Service Review Roll-up -- the RI had to navigate away
+// from the dashboard to see it. "Live assurance indicators" above is the current system-derived
+// position; this is the dated, signed leadership decision. The two are deliberately kept separate
+// (never merged, never one overriding the other). Reuses the SAME two GET requests Service Review
+// Roll-up already uses -- no new endpoint.
+function ProviderWeeklyAssuranceCard() {
+  const navigate = useNavigate();
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [weekEnding, setWeekEnding] = useState<string | null>(null);
+  const [rollup, setRollup] = useState<any>(null);
+
+  const load = async () => {
+    setStatus("loading");
+    try {
+      // Resolve the week the same way Service Review Roll-up does -- never calculate it independently.
+      const sr: any = await apiClient.get(`/weekly-reviews/service-rollup`);
+      const wk = sr?.data?.week_ending || null;
+      if (!wk) { setWeekEnding(null); setRollup(null); setStatus("ready"); return; }
+      const rr: any = await apiClient.get(`/weekly-reviews/rollup?week_ending=${wk}`);
+      setWeekEnding(wk);
+      setRollup(rr?.data || null);
+      setStatus("ready");
+    } catch {
+      setStatus("error");
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const fmtWeek = (v: any) => {
+    const s = String(v ?? "").slice(0, 10);
+    const d = new Date(`${s}T12:00:00Z`);
+    return isNaN(d.getTime()) ? s : d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  };
+  const fmtWhen = (v: any) => v ? new Date(v).toLocaleString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }) : null;
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-5 shadow-sm mb-6">
+      <h3 className="font-semibold mb-3">Provider Weekly Assurance</h3>
+      {status === "loading" && <p className="text-sm text-muted-foreground">Loading the signed weekly decision…</p>}
+      {status === "error" && (
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="text-muted-foreground">Could not load the Provider Weekly Assurance decision.</span>
+          <button onClick={load} className="text-primary font-medium hover:underline shrink-0">Retry</button>
+        </div>
+      )}
+      {status === "ready" && !weekEnding && (
+        <p className="text-sm text-muted-foreground">No reporting week is available yet.</p>
+      )}
+      {status === "ready" && weekEnding && !rollup?.signoff && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Week ending {fmtWeek(weekEnding)} — {rollup?.assurance_ready ? "ready for provider assurance sign-off" : "not yet ready for sign-off"}.
+          </p>
+          <button onClick={() => navigate(`/service-review-rollup?weekEnding=${weekEnding}`)} className="text-primary text-sm font-medium hover:underline shrink-0">View Service Review Roll-up →</button>
+        </div>
+      )}
+      {status === "ready" && weekEnding && rollup?.signoff && (
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm text-muted-foreground">Week ending {fmtWeek(weekEnding)}</p>
+            <p className="text-lg font-semibold text-foreground mt-0.5">{rollup.signoff.position || "—"}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {rollup.director_validated_count ?? 0} of {rollup.included_service_count ?? rollup.sites_total ?? 0} Director validated
+              {" | "}Signed {fmtWhen(rollup.signoff.acknowledged_at) || "—"}
+            </p>
+            <p className="text-xs text-muted-foreground">Signed by: {rollup.signoff.acknowledged_by_name || "—"}</p>
+            {(rollup.signoff.rationale || rollup.signoff.statement) && (
+              <p className="text-sm text-foreground mt-2 italic">{rollup.signoff.rationale || rollup.signoff.statement}</p>
+            )}
+            {rollup.historical_evidence_unavailable ? (
+              <p className="text-xs text-muted-foreground mt-2">Signed evidence snapshot unavailable for this decision.</p>
+            ) : rollup.evidence_is_historical ? (
+              <p className="text-xs text-muted-foreground mt-2">
+                Signed evidence: {rollup.evidence_totals?.open_risks ?? 0} risks · {rollup.evidence_totals?.open_escalations ?? 0} escalations
+                {" · "}{rollup.evidence_totals?.signals ?? 0} signals · {rollup.evidence_totals?.overdue_actions ?? 0} overdue actions
+              </p>
+            ) : null}
+            <button onClick={() => navigate(`/service-review-rollup?weekEnding=${weekEnding}`)} className="text-primary text-sm font-medium hover:underline mt-2 inline-block">View Service Review Roll-up →</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Donut({ data, centerLabel }: { data: { name: string; value: number; color: string }[]; centerLabel?: string }) {
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
@@ -177,6 +264,8 @@ export function ResponsibleIndividualDashboard() {
           <StatCard icon={ShieldCheck} tone={assuranceTone[overallAssurance.state] || "bg-slate-100 text-slate-600"} label="Live assurance indicators" value={overallAssurance.state}
             footer={<span className="text-muted-foreground">Company-wide · all records to date — {overallAssurance.basis}</span>} />
         </div>
+
+        <ProviderWeeklyAssuranceCard />
 
         {assuranceSummary && (() => {
           const stateTone: Record<string, string> = {

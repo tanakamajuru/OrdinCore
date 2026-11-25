@@ -269,7 +269,7 @@ export class WeeklyReviewsController {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${safe}.pdf"`);
 
-      const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      const doc = new PDFDocument({ margin: 51, size: 'A4', bufferPages: true });
       doc.pipe(res);
 
       // Render the SAME canonical report the screen and Team Leaders see (one document, one
@@ -287,14 +287,19 @@ export class WeeklyReviewsController {
       // brand mark at all) instead of the shared masthead the other two already use.
       drawReportHeader(doc as any, 'Weekly Governance Team Report');
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f766e').text('PUBLISHED WEEKLY GOVERNANCE REVIEW', { characterSpacing: 1 });
-      doc.moveDown(0.3).font('Helvetica').fontSize(10).fillColor('#555');
+      doc.moveDown(0.3).font('Helvetica').fontSize(11).fillColor('#555');
       doc.text(`${houseName} · week ending ${rev.week_ending}`);
       doc.text(`Prepared by ${rev.created_by_name || 'Registered Manager'}${rev.rm_finalised_at ? ' · finalised ' + new Date(rev.rm_finalised_at).toLocaleString('en-GB') : ''}`);
       if (rev.validation_status) doc.text(`Validation: ${rev.validation_status}${rev.validation_at ? ' · ' + new Date(rev.validation_at).toLocaleString('en-GB') : ''}`);
       if (rev.published_at) doc.text(`Published to team: ${new Date(rev.published_at).toLocaleString('en-GB')}`);
       doc.fillColor('#000').moveDown(0.8);
 
-      const section = (title: string) => { doc.moveDown(0.6).font('Helvetica-Bold').fontSize(12).fillColor('#0f766e').text(title.toUpperCase()); doc.moveDown(0.2).font('Helvetica').fontSize(10).fillColor('#000'); };
+      const section = (title: string) => {
+        doc.moveDown(0.85).font('Helvetica-Bold').fontSize(12).fillColor('#0f766e').text(title.toUpperCase());
+        // Thin separator under each heading (formatting-only; brief: "add thin separators").
+        const y = doc.y + 2; doc.moveTo(doc.page.margins.left, y).lineTo(doc.page.width - doc.page.margins.right, y).lineWidth(0.5).strokeColor('#d1d5db').stroke();
+        doc.moveDown(0.3).font('Helvetica').fontSize(11).fillColor('#000');
+      };
 
       section('This week');
       doc.text(`Signals reviewed: ${tr.signals_reviewed ?? 0}   ·   High / critical: ${tr.high_critical ?? 0}   ·   Main domains: ${tr.main_domain_count ?? 0}   ·   Week-end direction: ${weekEndDirection}`);
@@ -320,9 +325,9 @@ export class WeeklyReviewsController {
             const who = s.person || 'Service-level';
             const domain = s.domain || 'Governance signal';
             const concern = s.concern || s.description || 'Source detail missing';
-            doc.moveDown(0.15).font('Helvetica-Bold').fontSize(9).fillColor('#0f172a')
+            doc.moveDown(0.15).font('Helvetica-Bold').fontSize(11).fillColor('#0f172a')
               .text(`   • ${who} · ${domain}`);
-            doc.font('Helvetica').fontSize(9).fillColor('#333')
+            doc.font('Helvetica').fontSize(11).fillColor('#333')
               .text(`     ${concern}`);
             const decidedAt = fmtDay(s.decidedAt);
             doc.text(`     RM decision: ${s.decision || 'RM decision not recorded'}${s.reviewer ? ` · ${s.reviewer}` : ''}${decidedAt ? ` · ${decidedAt}` : ''}`);
@@ -335,7 +340,7 @@ export class WeeklyReviewsController {
             const follow = fmtDay(s.followUpDue);
             if (follow) doc.text(`     Follow-up due: ${follow}`);
           });
-          if (sigs.length) { doc.fontSize(10).fillColor('#000'); doc.moveDown(0.2); }
+          if (sigs.length) { doc.fontSize(11).fillColor('#000'); doc.moveDown(0.2); }
         });
       } else {
         doc.font('Helvetica-Oblique').fillColor('#555').text('No dated briefing was recorded for this week.').font('Helvetica').fillColor('#000');
@@ -362,8 +367,8 @@ export class WeeklyReviewsController {
         interventions.forEach((iv: any) => {
           const total = Number(iv.actions_total || 0); const done = Number(iv.actions_completed || 0);
           const eff = iv.latest_effectiveness ? String(iv.latest_effectiveness) : (total > 0 && done === total ? 'Implemented · effectiveness not yet reviewed' : 'Not yet reviewed');
-          doc.font('Helvetica-Bold').fontSize(9).fillColor('#0f172a').text(`• ${iv.theme || 'Intervention'}${iv.org_wide ? ' · Organisation-wide' : ''} · ${iv.status || 'Planned'}`);
-          doc.font('Helvetica').fontSize(9).fillColor('#333');
+          doc.font('Helvetica-Bold').fontSize(11).fillColor('#0f172a').text(`• ${iv.theme || 'Intervention'}${iv.org_wide ? ' · Organisation-wide' : ''} · ${iv.status || 'Planned'}`);
+          doc.font('Helvetica').fontSize(11).fillColor('#333');
           if (iv.plan) doc.text(`   Plan: ${iv.plan}`);
           doc.text(`   Accountable owner: ${iv.owner || 'Not recorded — required before activation'}`);
           doc.text(`   Expected outcome: ${iv.expected_outcome || 'Not recorded — required before activation'}`);
@@ -372,7 +377,7 @@ export class WeeklyReviewsController {
           doc.text(`   Next review: ${fmtDay(iv.review_date) || 'Not recorded'}`);
           doc.moveDown(0.2);
         });
-        doc.fontSize(10).fillColor('#000');
+        doc.fontSize(11).fillColor('#000');
       }
 
       const monitoringReviews: any[] = Array.isArray(tr.monitoring_reviews) ? tr.monitoring_reviews : [];
@@ -381,8 +386,8 @@ export class WeeklyReviewsController {
         section('Monitoring reviews this week');
         monitoringReviews.forEach((mr: any) => {
           const when = fmtDay(mr.reviewed_at);
-          doc.font('Helvetica-Bold').fontSize(9).fillColor('#0f172a').text(`• ${mr.concern || 'Escalation'}${when ? ` · ${when}` : ''}${mr.reviewed_by ? ` · ${mr.reviewed_by}` : ''}`);
-          doc.font('Helvetica').fontSize(9).fillColor('#333');
+          doc.font('Helvetica-Bold').fontSize(11).fillColor('#0f172a').text(`• ${mr.concern || 'Escalation'}${when ? ` · ${when}` : ''}${mr.reviewed_by ? ` · ${mr.reviewed_by}` : ''}`);
+          doc.font('Helvetica').fontSize(11).fillColor('#333');
           if (mr.note) doc.text(`   ${mr.note}`);
           doc.text(`   Monitoring owner: ${mr.monitoring_owner || 'Not recorded'}`);
           doc.text(`   Evidence to watch: ${mr.evidence_to_observe || 'Not recorded'}`);
@@ -390,7 +395,7 @@ export class WeeklyReviewsController {
           doc.text(`   Next review: ${fmtDay(mr.next_review_at) || 'Not recorded'}`);
           doc.moveDown(0.2);
         });
-        doc.fontSize(10).fillColor('#000');
+        doc.fontSize(11).fillColor('#000');
       }
 
       if (c.unresolved_concerns_text) { section('What remains a concern'); doc.text(c.unresolved_concerns_text); }
@@ -408,8 +413,8 @@ export class WeeklyReviewsController {
         section('Recorded learning');
         learningRecords.forEach((lr: any) => {
           const prov = lr.is_ai_suggested ? ' · AI suggestion (not approved learning)' : (lr.approved ? '' : ' · unapproved');
-          doc.font('Helvetica-Bold').fontSize(9).fillColor('#0f172a').text(`• ${stateLabel[lr.state] || lr.state}${lr.org_wide ? ' · Organisation-wide' : ''}${lr.author ? ` · ${lr.author}` : ''}${prov}`);
-          doc.font('Helvetica').fontSize(9).fillColor('#333');
+          doc.font('Helvetica-Bold').fontSize(11).fillColor('#0f172a').text(`• ${stateLabel[lr.state] || lr.state}${lr.org_wide ? ' · Organisation-wide' : ''}${lr.author ? ` · ${lr.author}` : ''}${prov}`);
+          doc.font('Helvetica').fontSize(11).fillColor('#333');
           if (lr.state === 'NONE_IDENTIFIED') { if (lr.no_learning_reason) doc.text(`   Reason: ${lr.no_learning_reason}`); }
           else if (lr.state === 'NOT_YET_ASSESSED') { doc.text(`   Assessment due: ${fmtDay(lr.review_date) || 'Not recorded'}`); }
           else {
@@ -421,7 +426,7 @@ export class WeeklyReviewsController {
           }
           doc.moveDown(0.2);
         });
-        doc.fontSize(10).fillColor('#000');
+        doc.fontSize(11).fillColor('#000');
       }
       if (c.anticipated_risks?.rm_note) { section('What to expect next week'); doc.text(c.anticipated_risks.rm_note); }
 

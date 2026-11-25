@@ -1,4 +1,5 @@
-import { AlertTriangle, CheckCircle2, FileDown, Lock, Save, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, FileDown, Lock, Save, Sparkles } from "lucide-react";
 
 type Props = { houses:any[]; houseId:string; weekEnding:string; preview:any; form:any; locked:boolean; saving:boolean; aiDrafting:boolean; status:string; onHouseChange:(id:string)=>void; onWeekChange:(date:string)=>void; onField:(key:string,value:any)=>void; onSave:()=>void; onAiDraft:()=>void; onFinalise:()=>void; onDownload?:()=>void };
 const positions=["Stable","Watch","Concern","Escalating","Serious Concern"];
@@ -40,6 +41,10 @@ const parseDailyBrief = (text: string) => {
 };
 
 export function RMWeeklyGovernanceWorkspace(props:Props){
+ // 24 Nov 2026 brief ("Weekly Review: minimal-risk corrections"): expanded daily evidence made the
+ // page unnecessarily long. Presentation only -- collapsed by default, date/headline always
+ // visible, no change to field values, ordering, validation or evidence retrieval.
+ const [expandedBriefs,setExpandedBriefs]=useState<Record<string,boolean>>({});
  const {preview,form,locked}=props, auto=preview?.auto_population||{}, evidence=preview?.weekly_evidence||{};
  const signals:any[]=Array.isArray(auto.signals)?auto.signals:[], briefs:any[]=Array.isArray(evidence.daily_briefs)?evidence.daily_briefs:[], measures:any[]=Array.isArray(evidence.active_measures)?evidence.active_measures:[], gaps:string[]=Array.isArray(evidence.evidence_gaps)?evidence.evidence_gaps:[];
  const addenda:any[]=Array.isArray(evidence.addenda)?evidence.addenda:[], weekEscalations:any[]=Array.isArray(evidence.escalations)?evidence.escalations:[], completedActions:any[]=Array.isArray(evidence.completed_actions)?evidence.completed_actions:[], patterns:any[]=Array.isArray(evidence.patterns)?evidence.patterns:[], incidents:any[]=Array.isArray(evidence.serious_incidents)?evidence.serious_incidents:[];
@@ -53,9 +58,13 @@ export function RMWeeklyGovernanceWorkspace(props:Props){
   <section className={card}><div className="flex items-center justify-between mb-4"><div><h2 className="font-semibold text-lg">Weekly evidence snapshot</h2><p className="text-sm text-muted-foreground">Automatically pulled for this service and week.</p></div>{gaps.length?<span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800">{gaps.length} evidence gap{gaps.length===1?"":"s"}</span>:<CheckCircle2 className="text-emerald-600" size={20}/>}</div><div className="grid grid-cols-2 md:grid-cols-5 gap-3">{[[signals.length,"Signals reviewed"],[high,"High / critical"],[domains.size,"Main domains"],[`${evidence.brief_days||0}/7`,"Daily briefs"],[measures.length,"Active measures"]].map(([n,l])=><div key={String(l)} className="rounded-lg bg-muted/50 p-3"><p className="text-xl font-semibold">{n}</p><p className="text-xs text-muted-foreground">{l}</p></div>)}</div>{gaps.length>0&&<div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><div className="flex gap-2 font-medium"><AlertTriangle size={17}/>Requires confirmation</div><ul className="mt-2 list-disc pl-5">{gaps.map(g=><li key={g}>{g}</li>)}</ul></div>}</section>
   <section className={card}><h2 className="font-semibold text-lg">Collective Daily Team Briefing</h2><p className="text-sm text-muted-foreground mb-4">Dated published briefs remain visible; repeated instructions may be consolidated in the summary.</p>{briefs.length?<div className="space-y-4">{briefs.map(b=>{
     const d=parseDailyBrief(b.summary);
+    const briefKey=String(b.id||b.date);
+    const isExpanded=!!expandedBriefs[briefKey];
+    const headline=d.whatHappened[0]?.main || "No signals recorded or reviewed for this date.";
     return (
       <div key={b.id||b.date} className="border-2 border-border rounded-xl overflow-hidden">
-        <div className="flex flex-wrap items-start gap-3 p-4 border-b-2 border-border bg-muted/30">
+        <button type="button" onClick={()=>setExpandedBriefs(p=>({...p,[briefKey]:!isExpanded}))}
+          className="w-full text-left flex flex-wrap items-start gap-3 p-4 border-b-2 border-border bg-muted/30 hover:bg-muted/50">
           <span className="text-sm font-semibold text-primary bg-primary/10 rounded-lg px-3 py-1.5 whitespace-nowrap">{fmt(b.date)}</span>
           <div className="flex-1 min-w-[220px]">
             <h3 className="text-base font-semibold text-foreground">Daily Governance Review</h3>
@@ -69,9 +78,11 @@ export function RMWeeklyGovernanceWorkspace(props:Props){
                 {d.fields["Review time"] && <div><span className="font-bold text-foreground">Review time:</span> {d.fields["Review time"]}</div>}
               </div>
             </div>
+            {!isExpanded && <p className="text-sm text-muted-foreground mt-2 truncate">{headline}</p>}
           </div>
-        </div>
-        <div className="p-4 space-y-4">
+          {isExpanded ? <ChevronDown size={18} className="text-muted-foreground shrink-0 mt-1" /> : <ChevronRight size={18} className="text-muted-foreground shrink-0 mt-1" />}
+        </button>
+        {isExpanded && <div className="p-4 space-y-4">
           <div>
             <div className="text-xs font-bold uppercase tracking-wide text-foreground mb-1.5">What happened</div>
             <div className="space-y-1.5 text-sm">
@@ -114,7 +125,7 @@ export function RMWeeklyGovernanceWorkspace(props:Props){
             </div>
           </div>
           <p className="text-xs text-muted-foreground">{b.acknowledgement_count||0} acknowledgement(s)</p>
-        </div>
+        </div>}
       </div>
     );
   })}</div>:<p className="text-sm text-muted-foreground">No completed published Daily Team Brief was found.</p>}<label className="block text-sm font-medium mt-4 mb-1">Collective weekly summary for the team report</label><textarea className={area} disabled={locked} value={form.collective_daily_brief_summary||""} onChange={e=>props.onField("collective_daily_brief_summary",e.target.value)} placeholder="Summarise the consistent message, important changes and what carried forward. Do not paste all seven briefs."/></section>

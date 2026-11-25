@@ -278,8 +278,16 @@ export function WeeklyReview() {
 
   // AI draft — fills the narrative + lessons from the week's live data. The manager reviews and
   // edits before signing off; nothing is finalised by AI.
+  // 24 Nov 2026 brief ("Weekly Review: minimal-risk corrections"): this used to overwrite
+  // step15_narrative/lessons_learnt unconditionally, silently discarding whatever the RM had
+  // already typed. Now asks before replacing any non-empty existing text.
   const generateAiDraft = async () => {
     if (!houseId) { toast.error("Select a service first."); return; }
+    const hasExisting = !!(form.step15_narrative?.trim() || form.lessons_learnt?.trim());
+    if (hasExisting) {
+      const ok = await confirm({ message: "This will replace your existing narrative and/or lessons learnt with the AI draft. Continue?", confirmLabel: "Replace" });
+      if (ok === null) return;
+    }
     setAiDrafting(true);
     try {
       const res = await apiClient.post(`/weekly-reviews/ai-draft`, { house_id: houseId, week_ending: weekEnding });
@@ -621,7 +629,15 @@ export function WeeklyReview() {
             </div>
           )}
 
+          {/* 24 Nov 2026 brief ("Weekly Review: minimal-risk corrections"): approval previously
+              relied on just the narrative and learning fields, with no concise view of management
+              position, outstanding concerns or the team briefing the RM compiled. All from existing
+              available fields — no new endpoint, approval state or second AI call. */}
           <div className="space-y-4">
+            <div className={card}>
+              <h2 className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Management position</h2>
+              <p className="text-sm font-semibold text-foreground">{c.step14_overall_position || "—"}</p>
+            </div>
             <div className={card}>
               <h2 className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Governance narrative</h2>
               <p className="text-sm leading-7 whitespace-pre-line text-foreground">{c.step15_narrative || "—"}</p>
@@ -632,6 +648,29 @@ export function WeeklyReview() {
                 <p className="text-sm leading-7 whitespace-pre-line text-foreground">{c.lessons_learnt}</p>
               </div>
             )}
+            {c.unresolved_concerns_text && (
+              <div className={card}>
+                <h2 className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Outstanding concerns</h2>
+                <p className="text-sm leading-7 whitespace-pre-line text-foreground">{c.unresolved_concerns_text}</p>
+              </div>
+            )}
+            {c.collective_daily_brief_summary && (
+              <div className={card}>
+                <h2 className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Team briefing summary</h2>
+                <p className="text-sm leading-7 whitespace-pre-line text-foreground">{c.collective_daily_brief_summary}</p>
+              </div>
+            )}
+            <details className={card}>
+              <summary className="text-xs uppercase tracking-widest text-muted-foreground cursor-pointer select-none">Full review detail</summary>
+              <div className="mt-3 space-y-3 text-sm">
+                {c.anticipated_risks?.rm_note && <p><b className="text-foreground">Week-ahead expectations:</b> <span className="whitespace-pre-line">{c.anticipated_risks.rm_note}</span></p>}
+                {Array.isArray(c.anticipated_risks?.items) && c.anticipated_risks.items.length > 0 && (
+                  <div><b className="text-foreground">Anticipated risks:</b>
+                    <ul className="list-disc pl-5 mt-1">{c.anticipated_risks.items.map((a: any, i: number) => <li key={i}>{a.theme} — {a.reason}</li>)}</ul>
+                  </div>
+                )}
+              </div>
+            </details>
           </div>
 
           <div className="flex flex-wrap gap-2 justify-end mt-5">
@@ -707,7 +746,7 @@ export function WeeklyReview() {
   }
 
   if (userRole === "REGISTERED_MANAGER") {
-    return <div className="min-h-screen bg-background"><RoleBasedNavigation/><main className="w-full pt-28 p-6 max-w-7xl mx-auto"><div className="mb-5"><button onClick={() => { setView("list"); loadOverview(); }} className="text-sm text-primary hover:underline mb-2 inline-flex items-center gap-1"><ArrowLeft size={14}/> Back to services</button><h1 className="text-2xl font-semibold">Weekly Governance Review</h1><p className="text-sm text-muted-foreground">Review the week’s evidence, record management judgement and preview what will be published.</p></div><RMWeeklyGovernanceWorkspace houses={houses} houseId={houseId} weekEnding={weekEnding} preview={preview} form={form} locked={locked} saving={isSaving} aiDrafting={aiDrafting} status={status} onHouseChange={(v) => { setHouseId(v); setReviewId(null); setStatus("Draft"); }} onWeekChange={(v) => { setWeekEnding(v); setReviewId(null); setStatus("Draft"); }} onField={set} onSave={saveWorkspaceDraft} onAiDraft={generateAiDraft} onFinalise={finalise} onDownload={downloadPdf}/></main></div>;
+    return <div className="min-h-screen bg-background">{ConfirmModal}<RoleBasedNavigation/><main className="w-full pt-28 p-6 max-w-7xl mx-auto"><div className="mb-5"><button onClick={() => { setView("list"); loadOverview(); }} className="text-sm text-primary hover:underline mb-2 inline-flex items-center gap-1"><ArrowLeft size={14}/> Back to services</button><h1 className="text-2xl font-semibold">Weekly Governance Review</h1><p className="text-sm text-muted-foreground">Review the week’s evidence, record management judgement and preview what will be published.</p></div><RMWeeklyGovernanceWorkspace houses={houses} houseId={houseId} weekEnding={weekEnding} preview={preview} form={form} locked={locked} saving={isSaving} aiDrafting={aiDrafting} status={status} onHouseChange={(v) => { setHouseId(v); setReviewId(null); setStatus("Draft"); }} onWeekChange={(v) => { setWeekEnding(v); setReviewId(null); setStatus("Draft"); }} onField={set} onSave={saveWorkspaceDraft} onAiDraft={generateAiDraft} onFinalise={finalise} onDownload={downloadPdf}/></main></div>;
   }
 
   const stepBody = () => {
