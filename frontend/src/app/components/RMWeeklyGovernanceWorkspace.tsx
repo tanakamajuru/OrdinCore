@@ -54,19 +54,19 @@ export function RMWeeklyGovernanceWorkspace(props:Props){
   <section className={card}><h2 className="font-semibold text-lg">Collective Daily Team Briefing</h2><p className="text-sm text-muted-foreground mb-4">Dated published briefs remain visible; repeated instructions may be consolidated in the summary.</p>{briefs.length?<div className="space-y-4">{briefs.map(b=>{
     const d=parseDailyBrief(b.summary);
     return (
-      <div key={b.id||b.date} className="border border-border/80 rounded-xl overflow-hidden">
-        <div className="flex flex-wrap items-start gap-3 p-4 border-b border-border/80 bg-muted/30">
+      <div key={b.id||b.date} className="border-2 border-border rounded-xl overflow-hidden">
+        <div className="flex flex-wrap items-start gap-3 p-4 border-b-2 border-border bg-muted/30">
           <span className="text-sm font-semibold text-primary bg-primary/10 rounded-lg px-3 py-1.5 whitespace-nowrap">{fmt(b.date)}</span>
           <div className="flex-1 min-w-[220px]">
             <h3 className="text-base font-semibold text-foreground">Daily Governance Review</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 mt-1 text-sm text-muted-foreground">
               <div>
-                {d.fields["Service"] && <div>Service: {d.fields["Service"]}</div>}
-                {d.fields["Date"] && <div>Date: {d.fields["Date"]}</div>}
+                {d.fields["Service"] && <div><span className="font-bold text-foreground">Service:</span> {d.fields["Service"]}</div>}
+                {d.fields["Date"] && <div><span className="font-bold text-foreground">Date:</span> {d.fields["Date"]}</div>}
               </div>
               <div>
-                {d.fields["Reviewed by"] && <div>Reviewed by: {d.fields["Reviewed by"]}</div>}
-                {d.fields["Review time"] && <div>Review time: {d.fields["Review time"]}</div>}
+                {d.fields["Reviewed by"] && <div><span className="font-bold text-foreground">Reviewed by:</span> {d.fields["Reviewed by"]}</div>}
+                {d.fields["Review time"] && <div><span className="font-bold text-foreground">Review time:</span> {d.fields["Review time"]}</div>}
               </div>
             </div>
           </div>

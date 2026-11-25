@@ -82,12 +82,12 @@ router.get('/:id', requireAuth, requireTenant, escalationsController.findById.bi
  *       200:
  *         description: Success
  */
-router.post('/:id/actions', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), escalationsController.addAction.bind(escalationsController));
+router.post('/:id/actions', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), escalationsController.addAction.bind(escalationsController));
 // Append-only progress/evidence — permitted for delivery roles (Team Leader/Support Worker) too.
 // This is NOT a governance decision (Escalation Doctrine): it never changes status or creates actions.
 router.post('/:id/progress', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'SUPPORT_WORKER', 'REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), escalationsController.addProgress.bind(escalationsController));
 // Assign a task from an escalation (works with or without a linked risk).
-router.post('/:id/task', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), escalationsController.addTask.bind(escalationsController));
+router.post('/:id/task', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), escalationsController.addTask.bind(escalationsController));
 /**
  * @openapi
  * /api/v1/escalations/{id}/actions:
@@ -129,7 +129,7 @@ router.get('/:id/actions', requireAuth, requireTenant, escalationsController.get
  *       200:
  *         description: Success
  */
-router.post('/:id/assign', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), escalationsController.assignEscalation.bind(escalationsController));
+router.post('/:id/assign', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), escalationsController.assignEscalation.bind(escalationsController));
 /**
  * @openapi
  * /api/v1/escalations/{id}/priority:
@@ -149,7 +149,7 @@ router.post('/:id/assign', requireAuth, requireTenant, requireRole('REGISTERED_M
  *       200:
  *         description: Success
  */
-router.patch('/:id/priority', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), escalationsController.updatePriority.bind(escalationsController));
+router.patch('/:id/priority', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), escalationsController.updatePriority.bind(escalationsController));
 /**
  * @openapi
  * /api/v1/escalations/{id}/resolve:
@@ -172,7 +172,7 @@ router.patch('/:id/priority', requireAuth, requireTenant, requireRole('REGISTERE
 router.post('/:id/resolve', requireAuth, requireTenant, blockOversightRole, escalationsController.resolve.bind(escalationsController));
 // §4 — mandatory post-closure risk review (Keep Open / Add Controls / Re-escalate / Request Risk Closure).
 router.post('/:id/post-closure-risk-review', requireAuth, requireTenant, requireMinRole('REGISTERED_MANAGER'), blockOversightRole, escalationsController.postClosureRiskReview.bind(escalationsController));
-router.post('/:id/escalate-further', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), escalationsController.escalateFurther.bind(escalationsController));
+router.post('/:id/escalate-further', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), escalationsController.escalateFurther.bind(escalationsController));
 /**
  * @openapi
  * /api/v1/escalations/{id}/acknowledge:
@@ -210,7 +210,7 @@ router.post('/:id/acknowledge', requireAuth, requireTenant, escalationsControlle
  *     responses:
  *       200: { description: Success }
  */
-router.post('/:id/transition', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), escalationsController.transition.bind(escalationsController));
+router.post('/:id/transition', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), escalationsController.transition.bind(escalationsController));
 /**
  * @openapi
  * /api/v1/escalations/{id}/reopen:
@@ -226,7 +226,7 @@ router.post('/:id/transition', requireAuth, requireTenant, requireRole('REGISTER
  *     responses:
  *       200: { description: Success }
  */
-router.post('/:id/reopen', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), escalationsController.reopen.bind(escalationsController));
+router.post('/:id/reopen', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), escalationsController.reopen.bind(escalationsController));
 /**
  * @openapi
  * /api/v1/escalations/{id}/closure-review:
@@ -242,6 +242,6 @@ router.post('/:id/reopen', requireAuth, requireTenant, requireRole('REGISTERED_M
  *     responses:
  *       200: { description: Success }
  */
-router.post('/:id/closure-review', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), closureController.closeEscalation.bind(closureController));
+router.post('/:id/closure-review', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), closureController.closeEscalation.bind(closureController));
 
 export default router;

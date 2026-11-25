@@ -995,7 +995,7 @@ export function IncidentCaseHub() {
                           </ul>
                         )}
                         <div className="border border-border rounded-lg p-3 space-y-2">
-                          <div className="relative">
+                          <div>
                             <input
                               value={personDraftName}
                               onChange={(e) => { setPersonDraftName(e.target.value); setPersonDropdownOpen(true); }}
@@ -1004,10 +1004,17 @@ export function IncidentCaseHub() {
                               placeholder="Search the directory, or type a name (external/unknown person)"
                               className="w-full h-9 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                             />
+                            {/* 25 Nov 2026 field report: this list is INSIDE the "Report Serious Incident"
+                                modal's own max-h-[90vh] overflow-y-auto box (line ~854). Positioned
+                                `absolute`, it rendered below the input but got clipped by that modal's
+                                scroll boundary whenever the input sat low in the form -- the names loaded
+                                fine (the directory counts below proved it) but the picker looked dead.
+                                Rendered inline instead, so it always pushes the form down and is never
+                                clipped. */}
                             {personDropdownOpen && personDraftName.trim() && (() => {
                               const matches = people.filter((p) => p.name.toLowerCase().includes(personDraftName.trim().toLowerCase())).slice(0, 8);
                               return matches.length > 0 ? (
-                                <div className="absolute z-10 mt-1 w-full border-2 border-border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y divide-border">
+                                <div className="mt-1 w-full border-2 border-border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y divide-border">
                                   {matches.map((p, i) => (
                                     <button
                                       key={i}
@@ -1021,7 +1028,9 @@ export function IncidentCaseHub() {
                                     </button>
                                   ))}
                                 </div>
-                              ) : null;
+                              ) : (
+                                <p className="text-[11px] text-muted-foreground mt-1">No directory match — this will be added as an external/unknown person.</p>
+                              );
                             })()}
                           </div>
                           <div className="flex flex-wrap gap-3 items-center">
