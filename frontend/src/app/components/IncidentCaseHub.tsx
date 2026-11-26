@@ -722,6 +722,14 @@ export function IncidentCaseHub() {
                         <span className={`px-2 py-1 rounded text-[10px]  shadow-sm ${getStatusColor(incident.status)}`}>
                           {incident.status.replace('-', ' ').toUpperCase()}
                         </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/incidents/${incident.id}/timeline`)}
+                          className="h-6 px-2 text-[10px] border-primary text-primary hover:bg-primary/10"
+                        >
+                          CLICK TO VIEW PROGRESS
+                        </Button>
                       </div>
 
                       {incident.description && (
