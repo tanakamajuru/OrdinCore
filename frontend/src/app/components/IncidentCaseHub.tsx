@@ -120,7 +120,7 @@ export function IncidentCaseHub() {
 
   // Create incident form state
   const [incidentForm, setIncidentForm] = useState<any>({
-    house_id: '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(), immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '', warning_signals_reason: '', source_pulse_id: '',
+    house_id: '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(), immediate_action: '', persons_involved: '', location: '', type: '', other_type: '', warning_signals: '', warning_signals_reason: '', source_pulse_id: '',
     la_referral: '', cqc_notification: '', police_reference: '', other_references: '',
     is_foreseeable: '', risk_factors: '', preventive_measures: '', leadership_commentary: '',
     lessons_learned: '', learning_shared: false
@@ -369,7 +369,12 @@ export function IncidentCaseHub() {
         client_submission_id: submissionIdRef.current,
         house_id: targetHouseId,
         title: incidentForm.title,
-        description: incidentForm.description,
+        // "Other" has no dedicated backend column (incidents.type isn't persisted at all today --
+        // a separate, pre-existing gap), so the free-text description entered for it is folded
+        // into the narrative rather than silently dropped.
+        description: incidentForm.type === 'other' && incidentForm.other_type
+          ? `Incident type (Other): ${incidentForm.other_type}\n\n${incidentForm.description}`
+          : incidentForm.description,
         severity: incidentForm.severity,
         occurred_at: new Date(incidentForm.occurred_at).toISOString(),
         location: incidentForm.location,
@@ -409,7 +414,7 @@ export function IncidentCaseHub() {
       setIncidentPersons([]); setNoIndividualAffected(false); setPersonDraftName(''); setPersonDraftRoles([]);
       setIncidentForm({
         house_id: userHouseId || '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(),
-        immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '', warning_signals_reason: '', source_pulse_id: '', linked_risks: [], linked_escalations: [], linked_signals: [], linked_patterns: [],
+        immediate_action: '', persons_involved: '', location: '', type: '', other_type: '', warning_signals: '', warning_signals_reason: '', source_pulse_id: '', linked_risks: [], linked_escalations: [], linked_signals: [], linked_patterns: [],
         la_referral: '', cqc_notification: '', police_reference: '', other_references: '',
         is_foreseeable: '', risk_factors: '', preventive_measures: '', leadership_commentary: '',
         lessons_learned: '', learning_shared: false
@@ -944,6 +949,15 @@ export function IncidentCaseHub() {
                           <option value="absconding">Absconding</option>
                           <option value="other">Other</option>
                         </select>
+                        {incidentForm.type === 'other' && (
+                          <Input
+                            id="incident-type-other"
+                            placeholder="Describe the incident type"
+                            value={incidentForm.other_type}
+                            onChange={(e) => setIncidentForm({ ...incidentForm, other_type: e.target.value })}
+                            className="mt-2 border-border bg-background focus:ring-primary rounded-lg"
+                          />
+                        )}
                       </div>
                       <div>
                         <label htmlFor="severity-level" className="block text-sm  text-foreground mb-1">Severity Level *</label>
