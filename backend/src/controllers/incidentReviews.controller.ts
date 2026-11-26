@@ -31,8 +31,8 @@ export class IncidentReviewsController {
   async getCaseSummary(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      if (await houseScopeGuardForIncident(req, res, req.params.incidentId, company_id)) return;
-      const data = await incidentReviewsService.getCaseSummary(req.params.incidentId, company_id);
+      if (await houseScopeGuardForIncident(req, res, req.params.id, company_id)) return;
+      const data = await incidentReviewsService.getCaseSummary(req.params.id, company_id);
       return res.json({ success: true, data, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load case summary';
@@ -43,8 +43,8 @@ export class IncidentReviewsController {
   async getActive(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      if (await houseScopeGuardForIncident(req, res, req.params.incidentId, company_id)) return;
-      const data = await incidentReviewsService.getActive(req.params.incidentId, company_id);
+      if (await houseScopeGuardForIncident(req, res, req.params.id, company_id)) return;
+      const data = await incidentReviewsService.getActive(req.params.id, company_id);
       return res.json({ success: true, data, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load incident review';
@@ -66,9 +66,9 @@ export class IncidentReviewsController {
   async assign(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      if (await houseScopeGuardForIncident(req, res, req.params.incidentId, company_id)) return;
+      if (await houseScopeGuardForIncident(req, res, req.params.id, company_id)) return;
       const { assigned_to, due_at, note } = req.body || {};
-      const review = await incidentReviewsService.assign(req.params.incidentId, company_id, req.user!.user_id, {
+      const review = await incidentReviewsService.assign(req.params.id, company_id, req.user!.user_id, {
         assignedTo: assigned_to, dueAt: due_at || null, note: note || null,
       });
       return res.json({ success: true, data: review, meta: {} });
