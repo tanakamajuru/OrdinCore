@@ -11,6 +11,7 @@ import {
   govSectionHeading,
   govParagraph,
   govSupportText,
+  govBorderedEntry,
   govGap,
   GOV_HEADING_BLOCK_GAP,
   GOV_HEADING_BLOCK_TO_DETAILS_GAP,
@@ -410,8 +411,9 @@ export const governancePdfService = {
           (doc as any).addPage();
           govSectionHeading(doc, 'Monitoring and decision history (continued)');
         }
-        govSupportText(doc, `[${fmtDate(a.created_at)}] ${escalationEventLabel(a.action_type)} — ${a.taken_by_name || 'System'}`, { bold: true });
-        if (a.description) govSupportText(doc, a.description, { indent: 10 });
+        // 26 Nov 2026 field report: "put each entry in a border" so a long history reads as
+        // discrete dated records rather than running text.
+        govBorderedEntry(doc, `[${fmtDate(a.created_at)}] ${escalationEventLabel(a.action_type)} — ${a.taken_by_name || 'System'}`, a.description || undefined);
       });
     }
 

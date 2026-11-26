@@ -390,6 +390,46 @@ export function govSupportText(doc: typeof PDFDocument, text: string, opts: { in
   doc.x = GOV_MARGIN;
 }
 
+/** Draws one history/timeline entry (dated header line + optional description) inside its own
+ * bordered box, so a long list of monitoring/decision entries reads as discrete records instead
+ * of running text. 26 Nov 2026 field report: staff asked for "each entry in a border" on the
+ * escalation report's Monitoring and decision history list. Computes the box height up front from
+ * the wrapped text (PDFKit has no auto-growing box primitive) and page-breaks the whole entry
+ * together rather than splitting a box across pages. */
+export function govBorderedEntry(doc: typeof PDFDocument, headerText: string, bodyText?: string, opts: { indent?: number } = {}): void {
+  const indent = opts.indent || 0;
+  const padX = 8, padY = 6;
+  const innerWidth = GOV_CONTENT_WIDTH - indent - padX * 2;
+
+  doc.font(GOV_FONT_BOLD).fontSize(GOV_TYPE.BODY.size);
+  const headerHeight = doc.heightOfString(headerText, { width: innerWidth, lineGap: govLineGap(GOV_TYPE.BODY) });
+  let bodyHeight = 0;
+  if (bodyText) {
+    doc.font(GOV_FONT_REGULAR).fontSize(GOV_TYPE.BODY.size);
+    bodyHeight = doc.heightOfString(bodyText, { width: innerWidth, lineGap: govLineGap(GOV_TYPE.BODY) });
+  }
+  const boxHeight = padY * 2 + headerHeight + (bodyText ? GOV_ATTRIBUTION_GAP + bodyHeight : 0);
+
+  if (doc.y + boxHeight > GOV_BODY_BOTTOM_Y) {
+    (doc as any).addPage();
+  }
+
+  const boxX = GOV_MARGIN + indent;
+  const boxY = doc.y;
+  doc.lineWidth(1).strokeColor(GOV_COLORS.DIVIDER).rect(boxX, boxY, GOV_CONTENT_WIDTH - indent, boxHeight).stroke();
+
+  doc.font(GOV_FONT_BOLD).fontSize(GOV_TYPE.BODY.size).fillColor(GOV_COLORS.INK)
+    .text(headerText, boxX + padX, boxY + padY, { width: innerWidth, lineGap: govLineGap(GOV_TYPE.BODY) });
+  if (bodyText) {
+    doc.font(GOV_FONT_REGULAR).fontSize(GOV_TYPE.BODY.size).fillColor(GOV_COLORS.INK)
+      .text(bodyText, boxX + padX, boxY + padY + headerHeight + GOV_ATTRIBUTION_GAP, { width: innerWidth, lineGap: govLineGap(GOV_TYPE.BODY) });
+  }
+
+  doc.y = boxY + boxHeight + GOV_ATTRIBUTION_GAP;
+  doc.x = GOV_MARGIN;
+  doc.fillColor(GOV_COLORS.INK).font(GOV_FONT_REGULAR).fontSize(GOV_TYPE.BODY.size);
+}
+
 /** Vertical gap helper (points, not "lines") so spacing matches the spec's exact pt values
  * instead of PDFKit's font-relative moveDown(). */
 export function govGap(doc: typeof PDFDocument, pt: number): void {
