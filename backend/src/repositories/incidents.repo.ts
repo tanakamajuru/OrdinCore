@@ -62,13 +62,26 @@ export const incidentsRepo = {
     const incident = result.rows[0] || null;
 
     if (incident) {
-      // Fetch linked risks
+      // Fetch linked risks. Field report (26 Nov 2026, "linked risks etc are not pulling — all
+      // related things should pull and show from all related things to the case/signal"): this
+      // only ever looked at the direct incident_risks join table, which is populated solely when
+      // a risk is explicitly attached while creating/editing the incident — it never followed the
+      // same originating-signal/pattern chain that risks.repo.ts's own detail view already widened
+      // to (14 Nov 2026 correction, risk_signal_links by pulse/cluster). So a risk promoted from
+      // the same signal or pattern that produced this incident showed up on the risk's own page as
+      // related, but never appeared here. Widened to also pull risks reachable via that chain.
       const risksResult = await query(
-        `SELECT r.id, r.title, r.severity, r.status, r.risk_domain 
-         FROM risks r 
-         JOIN incident_risks ir ON ir.risk_id = r.id 
-         WHERE ir.incident_id = $1`,
-        [id]
+        `SELECT DISTINCT r.id, r.title, r.severity, r.status, r.risk_domain
+         FROM risks r
+         WHERE r.company_id = $2 AND (
+           r.id IN (SELECT risk_id FROM incident_risks WHERE incident_id = $1)
+           OR r.id IN (
+             SELECT rsl.risk_id FROM risk_signal_links rsl
+             WHERE rsl.pulse_entry_id IN (SELECT pulse_id FROM incident_signals WHERE incident_id = $1)
+                OR rsl.cluster_id IN (SELECT cluster_id FROM incident_patterns WHERE incident_id = $1)
+           )
+         )`,
+        [id, incident.company_id]
       );
       incident.linked_risks = risksResult.rows;
 
