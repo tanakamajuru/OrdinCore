@@ -34,6 +34,10 @@ interface IncidentDetail {
   risk_factors?: string;
   preventive_measures?: string;
   leadership_commentary?: string;
+  lessons_learned?: string;
+  learning_shared?: boolean;
+  warning_signals?: string;
+  warning_signals_reason?: string;
 }
 
 interface TimelineEvent {
@@ -577,6 +581,41 @@ export function IncidentDetail() {
               </div>
             )}
           </div>
+
+          {/* Lessons Learned & Warning Signals. Field report (26 Nov 2026, "all information isn't
+              being picked from here"): captured on the Report Serious Incident form but never
+              rendered anywhere on this page. */}
+          {(incident.lessons_learned || incident.warning_signals) && (
+            <div className="bg-card border-2 border-border p-6">
+              <h2 className="text-xl  mb-4 text-foreground flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary" />
+                Lessons Learned
+              </h2>
+              <div className="space-y-4">
+                {incident.warning_signals && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold">Were there prior warning signals?</p>
+                    <p className="text-sm font-medium capitalize">{incident.warning_signals}</p>
+                    {incident.warning_signals_reason && (
+                      <p className="text-sm mt-1">{incident.warning_signals_reason}</p>
+                    )}
+                  </div>
+                )}
+                {incident.lessons_learned && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold">What was learnt</p>
+                    <p className="text-sm">{incident.lessons_learned}</p>
+                  </div>
+                )}
+                {incident.lessons_learned && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold">Shared with the wider team</p>
+                    <p className="text-sm font-medium">{incident.learning_shared ? 'Yes' : 'No'}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Attachments */}
           <div className="bg-card border-2 border-border p-6">

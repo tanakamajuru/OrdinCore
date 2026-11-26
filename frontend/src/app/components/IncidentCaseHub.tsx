@@ -154,7 +154,7 @@ export function IncidentCaseHub() {
   const [patternsStatus, setPatternsStatus] = useState<PickerStatus>('loading');
   const [signalSearchTerm, setSignalSearchTerm] = useState('');
   const [patternSearchTerm, setPatternSearchTerm] = useState('');
-  const [people, setPeople] = useState<{ id: string; name: string; kind: string }[]>([]);
+  const [people, setPeople] = useState<{ id: string; name: string; kind: string; house_id?: string }[]>([]);
   // C1 correction (21 Oct 2026): "Show directory loading/error/retry" -- the directory fetch was a
   // bare try/catch with no loading state and no way to retry a failed load; a failure just left the
   // picker permanently empty with no explanation.
@@ -237,7 +237,7 @@ export function IncidentCaseHub() {
       // {name,kind} was kept), which is why "Add person" could never attach anything but a name
       // for related-history/evidence matching to key off.
       const staff = uList.map((u: any) => ({ id: u.id, name: nameOf(u), kind: 'Staff' })).filter((p: any) => p.name);
-      const patients = sList.map((s: any) => ({ id: s.id, name: nameOf(s), kind: 'Service User' })).filter((p: any) => p.name);
+      const patients = sList.map((s: any) => ({ id: s.id, name: nameOf(s), kind: 'Service User', house_id: s.house_id })).filter((p: any) => p.name);
       setPeople([...patients, ...staff]);
       setPeopleStatus('ready');
     } catch {
@@ -1042,8 +1042,14 @@ export function IncidentCaseHub() {
                             {personDropdownOpen && (personDraftType === 'client' || personDraftType === 'staff') && (() => {
                               const wantKind = personDraftType === 'staff' ? 'Staff' : 'Service User';
                               const term = personDraftName.trim().toLowerCase();
+                              // Field report (26 Nov 2026): service users from every house were offered
+                              // regardless of the service selected in step 1, so people from an unrelated
+                              // house could be picked for this incident. Service users carry a house_id
+                              // (staff don't -- they can be assigned across several services), so scope
+                              // to the incident's selected house for that kind only.
                               const matches = people
                                 .filter((p) => p.kind === wantKind)
+                                .filter((p) => wantKind !== 'Service User' || !incidentForm.house_id || p.house_id === incidentForm.house_id)
                                 .filter((p) => !term || p.name.toLowerCase().includes(term))
                                 .slice(0, 8);
                               return matches.length > 0 ? (
