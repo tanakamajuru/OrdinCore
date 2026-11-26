@@ -398,6 +398,14 @@ export const guidedWorkService = {
         title: m.rm_attention ? 'Urgent: monitored signal needs you' : 'Review monitored concern',
         summary:m.what_is_happening || 'Monitoring review due',
         reason: m.rm_attention ? 'The monitoring owner flagged this signal for your immediate attention.' : 'The monitoring review point has been reached.',
+        // Field report (26 Nov 2026): a Team Leader's "needs the RM's attention now" flag never
+        // appeared on the RM's My Work -- MyWork.tsx actually DOES split needsYou by this category
+        // field (myWork = category==='ASSIGNED', decisions = everything else), contrary to the
+        // stale comment on GuidedWorkItem.category claiming the UI ignores it. Every item here was
+        // left uncategorised, so it silently always fell into "Decisions Due". A TL-flagged urgent
+        // item is personally directed at the RM right now, not a routine due-date decision, so it
+        // belongs in My Work; the ordinary due-date review stays a Decision.
+        category: m.rm_attention ? 'ASSIGNED' : 'DECISION',
         dueAt:m.due_at, serviceName:m.service_name,
         canonicalEntityType:'signal', canonicalEntityId:m.pulse_entry_id || m.id, requiredAction:'RM_MONITORING_REVIEW',
         completionCondition:'A new canonical RM decision is persisted for the monitored signal at its due review point.',
@@ -581,6 +589,9 @@ export const guidedWorkService = {
         // is agreed (the exact staleness the field report caught).
         const item: GuidedWorkItem = { id:`escalation:${e.id}`, role, state: dueNow ? 'NEEDS_YOU' : 'WAITING', priority: rmAttention ? 'URGENT' : priorityFor(e.due_by,['Urgent','Critical'].includes(e.priority)), taskType:'ESCALATION_REVIEW',
           title: rmAttention ? 'Urgent: monitored escalation needs you' : 'Review open escalation', summary:e.reason || 'Open escalation needs review', reason, dueAt: e.next_review_at || e.due_by, serviceName:e.service_name,
+          // Same My Work/Decisions Due split fix as the signal monitoring item above: a TL's urgent
+          // flag on a monitored escalation is personally directed at the RM, not a routine decision.
+          category: rmAttention ? 'ASSIGNED' : 'DECISION',
           canonicalEntityType:'escalation', canonicalEntityId:e.id, requiredAction:'ESCALATION_REVIEW',
           completionCondition:'Review the escalation and record its canonical next step, or close it through the existing escalation workflow.',
           route:`/escalation-log?focus=${e.id}&guided=1&gw=escalation:${e.id}`,
