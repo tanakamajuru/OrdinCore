@@ -141,8 +141,14 @@ export class IncidentsController {
       if (isOutsideHouseScope(req, existing.house_id)) {
         return res.status(404).json({ success: false, message: 'Incident not found', errors: [] });
       }
+      // 26 Nov 2026 field report ("this returns 0's ... TypeError: q.filter is not a function"):
+      // the service already returns the full { timeline: [...], metrics, patterns, findings, ... }
+      // payload the frontend expects at the top level of `data` — wrapping it again as
+      // `{ timeline }` produced data.timeline.timeline (the array two levels deep instead of one),
+      // so every frontend reader that did `reportData.timeline` got the inner object back instead
+      // of the array and either silently rendered zeros or crashed calling .filter() on it.
       const timeline = await incidentsService.getGovernanceTimeline(req.params.id, company_id);
-      return res.json({ success: true, data: { timeline }, meta: {} });
+      return res.json({ success: true, data: timeline, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to get governance timeline';
       return res.status(400).json({ success: false, message, errors: [] });
