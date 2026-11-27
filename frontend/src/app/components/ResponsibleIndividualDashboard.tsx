@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { apiClient } from "@/services/api";
+import { useAuth } from "@/hooks/useAuth";
 import { isOpenEscalation } from "@/lib/governanceStatus";
 import { useCanonicalEvidenceSummary } from '@/hooks/useCanonicalEvidenceSummary';
 import { CanonicalEvidenceStrip } from './canonical/CanonicalEvidenceStrip';
@@ -144,6 +145,7 @@ function Donut({ data, centerLabel }: { data: { name: string; value: number; col
 
 export function ResponsibleIndividualDashboard() {
   const {data:evidenceSummary}=useCanonicalEvidenceSummary();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [risks, setRisks] = useState<any[]>([]);
@@ -204,6 +206,28 @@ export function ResponsibleIndividualDashboard() {
 
   const openEsc = escalations.filter(isOpenEscalation);
   const overdueEsc = escalations.filter(e => e.overdue).length;
+
+  // 27 Nov 2026 brief ("RI escalation oversight"): the panel previously showed the first six open
+  // escalations by status alone, so a routine RM-owned escalation could appear under "Requiring RI
+  // Oversight" even though it was never escalated to the RI and the RM was already working it.
+  // Two things now genuinely qualify, mirroring the handover rule guidedWork.service.ts already
+  // uses for RI My Work (escalated_to = this RI, still open):
+  //   1. Director handover: escalated_to is this RI -- a decision is actually theirs to make.
+  //   2. Agreed oversight exception: the escalation is overdue (e.is_overdue, the same flag the
+  //      Escalation assurance donut above already uses) while still owned by someone else -- the
+  //      RI needs visibility, but the owner keeps the task ("View escalation", not a decision).
+  const riOversightEsc = openEsc
+    .filter(e => e.escalated_to === user?.id || e.overdue)
+    .map(e => {
+      const isHandover = e.escalated_to === user?.id;
+      return {
+        ...e,
+        oversightReason: isHandover ? 'Director handed over for an RI decision' : 'Overdue follow-up meets RI oversight rule',
+        oversightOwnerName: isHandover ? 'RI' : (e.escalated_to_name || 'Registered Manager'),
+        oversightIsDecision: isHandover,
+      };
+    })
+    .sort((a, b) => (a.oversightIsDecision === b.oversightIsDecision ? 0 : a.oversightIsDecision ? -1 : 1));
   const rmRisksOpen = reportMetrics?.risks_open ?? openRisks.length;
   const rmEscOpen = reportMetrics?.escalations_open ?? openEsc.length;
   const rmEscOverdue = reportMetrics?.escalations_overdue ?? overdueEsc;
@@ -343,22 +367,38 @@ export function ResponsibleIndividualDashboard() {
             framework — there is deliberately no second "Key Assurance Questions" panel here
             (RI Assurance Interface correction, 14 Oct 2026). */}
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-          <h3 className="font-bold mb-4">Open Escalations Requiring RI Oversight</h3>
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="font-bold">Open Escalations Requiring RI Oversight</h3>
+            <button onClick={() => navigate('/escalation-log')} className="text-primary text-xs font-medium hover:underline shrink-0">View full Escalation Log →</button>
+          </div>
+          <p className="text-xs text-muted-foreground mb-4">{riOversightEsc.length} case{riOversightEsc.length === 1 ? '' : 's'} meet the RI oversight criteria</p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm border border-border">
               <thead><tr className="text-left text-xs font-bold text-muted-foreground bg-muted/40 border-b border-border">
-                <th className="py-2 px-2 border-r border-border">Escalation</th><th className="px-2 border-r border-border">Reason</th><th className="px-2 border-r border-border">Status</th><th className="px-2">Days Open</th>
+                <th className="py-2 px-2 border-r border-border">Escalation / Service</th>
+                <th className="px-2 border-r border-border">Reason for RI oversight</th>
+                <th className="px-2 border-r border-border">Current owner</th>
+                <th className="px-2 border-r border-border">Status</th>
+                <th className="px-2">Next step</th>
               </tr></thead>
               <tbody>
-                {openEsc.slice(0, 6).map(e => (
+                {riOversightEsc.slice(0, 6).map(e => (
                   <tr key={e.id} className="border-b border-border hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/escalation-log?focus=${e.id}`)}>
-                    <td className="py-2.5 px-2 border-r border-border">{e.risk_title || e.reason || "Escalation"}</td>
-                    <td className="px-2 border-r border-border max-w-[160px] truncate text-muted-foreground">{e.reason}</td>
+                    <td className="py-2.5 px-2 border-r border-border">
+                      <div>{e.risk_title || e.reason || "Escalation"}</div>
+                      {e.service_name && <div className="text-xs text-muted-foreground">{e.service_name}</div>}
+                    </td>
+                    <td className="px-2 border-r border-border max-w-[200px] truncate text-muted-foreground">{e.oversightReason}</td>
+                    <td className="px-2 border-r border-border">{e.oversightOwnerName}</td>
                     <td className="px-2 border-r border-border"><span className={`text-xs rounded px-2 py-0.5 ${e.overdue ? "bg-red-100 text-red-700" : "bg-muted"}`}>{e.overdue ? "Overdue" : (e.lifecycle_status || e.status)}</span></td>
-                    <td className="px-2">{Math.max(0, Math.round((Date.now() - new Date(e.created_at).getTime()) / 86400000))}</td>
+                    <td className="px-2">
+                      <span className={`text-xs font-medium rounded px-2 py-0.5 ${e.oversightIsDecision ? "bg-amber-100 text-amber-800" : "bg-blue-50 text-blue-700"}`}>
+                        {e.oversightIsDecision ? "Review escalation" : "View escalation"}
+                      </span>
+                    </td>
                   </tr>
                 ))}
-                {openEsc.length === 0 && <tr><td colSpan={4} className="py-8 text-center text-muted-foreground text-xs">No escalations currently require RI oversight.</td></tr>}
+                {riOversightEsc.length === 0 && <tr><td colSpan={5} className="py-8 text-center text-muted-foreground text-xs">No escalations currently require RI oversight.</td></tr>}
               </tbody>
             </table>
           </div>

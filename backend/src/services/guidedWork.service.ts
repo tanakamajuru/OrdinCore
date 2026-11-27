@@ -1002,8 +1002,12 @@ route:`/weekly-review/${w.id}?guided=1&gw=director_weekly:${w.id}`,actionLabel:'
     // tagging it DECISION made it read as a decision overdue under "Decisions Due" (field report
     // 16 Oct 2026). Only the RM/owner-facing governance decision items are DECISION.
     const ASSIGNED_TASK_TYPES = new Set(['ASSIGNED_ACTION', 'WEEKLY_ACK', 'SIGNAL_MONITORING', 'ESCALATION_MONITORING']);
+    // 27 Nov 2026 bug fix: this previously overwrote category unconditionally, silently undoing the
+    // explicit category already set on urgent monitoring/escalation items above (e.g. the TL
+    // "needs RM attention" flag) -- they always fell back to DECISION here regardless of urgency.
+    // Only default the category when an item hasn't already stated one.
     const withCategory = (it: GuidedWorkItem): GuidedWorkItem =>
-      ({ ...it, category: ASSIGNED_TASK_TYPES.has(it.taskType) ? 'ASSIGNED' : 'DECISION' });
+      it.category ? it : { ...it, category: ASSIGNED_TASK_TYPES.has(it.taskType) ? 'ASSIGNED' : 'DECISION' };
 
     // Guided Work never hides active work: the full canonical population is returned and
     // ordered by priority. Completion removes an item only by changing canonical state.
