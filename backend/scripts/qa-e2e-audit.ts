@@ -19,7 +19,8 @@ import path from 'path';
 const API = 'https://work.ordincore.co.uk/api/v1';
 const APP = 'https://work.ordincore.co.uk';
 const STAMP = Date.now();
-const PASSWORD = 'QaAudit!2026';
+// Generated per run, never hardcoded — this tenant and its users are disposable test fixtures.
+const PASSWORD = `Qa${Math.random().toString(36).slice(2, 10)}!${Math.floor(Math.random() * 90 + 10)}`;
 const SHOT_DIR = path.join(__dirname, '..', '..', 'qa-audit-screenshots');
 if (!fs.existsSync(SHOT_DIR)) fs.mkdirSync(SHOT_DIR, { recursive: true });
 
