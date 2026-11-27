@@ -278,17 +278,18 @@ async function main() {
       else if (actionId) log('TL My Work shows the newly-assigned action: OK');
 
       // Cross-check: does the Action Tracker (actions list) surface the same action with its
-      // governance context (which signal/decision it came from), not just a bare title?
-      const actionDetailRes = await rm.get(`/actions/${actionId}`).catch(() => ({ status: 0, data: null } as any));
-      if (actionId && actionDetailRes.status === 200) {
-        const ad = actionDetailRes.data?.data;
-        if (!ad?.source_pulse_id && !ad?.governance_review_id) {
-          bug('action-pull-source', 'Action detail does not carry a link back to the signal/decision that created it.');
-        } else {
-          log('Action detail pulls its originating signal/decision link: OK');
-        }
+      // governance context (which signal/decision it came from), not just a bare title? There is
+      // no GET /actions/:id — find it in the list instead.
+      const actionsListRes = await rm.get('/actions?limit=100');
+      const ad = (actionsListRes.data?.data || []).find((a: any) => a.id === actionId);
+      if (actionId && !ad) {
+        bug('action-pull-list', 'Action Tracker list does not contain the action just created.');
       } else if (actionId) {
-        warn('action-pull-source', `Could not fetch action detail directly (status ${actionDetailRes.status}); skipping source-link check.`);
+        if (!ad.source_pulse_id && !ad.governance_review_id) {
+          bug('action-pull-source', 'Action in the Action Tracker list does not carry a link back to the signal/decision that created it.');
+        } else {
+          log('Action Tracker pulls its originating signal/decision link: OK');
+        }
       }
     }
   }
@@ -324,7 +325,7 @@ async function main() {
           bug('risk-pull', `Could not fetch promoted risk detail: ${riskDetailRes.status}`);
         } else {
           const rd = riskDetailRes.data?.data;
-          const linkedSignals = rd?.linked_signals || rd?.signal_history;
+          const linkedSignals = rd?.pulses;
           if (!linkedSignals || (Array.isArray(linkedSignals) && linkedSignals.length === 0)) {
             bug('risk-pull-signal', 'Risk detail does not surface the originating signal it was promoted from.');
           } else {
