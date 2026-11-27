@@ -89,7 +89,20 @@ export const governanceDecisionsService = {
       if (!h.rows[0]) throw new Error('Service not found.');
     }
     if (input.pulse_entry_id) {
-      const p = await client.query(`SELECT id,house_id FROM governance_pulses WHERE id=$1 AND company_id=$2 FOR UPDATE`, [input.pulse_entry_id, c]);
+      // 27 Nov 2026 fix (QA audit, confirmed live): a 'Promote to Risk' decision calls
+      // promoteToRiskInTx -> risksService.promoteFromSignal, which writes to this EXACT
+      // governance_pulses row (review_status = 'Linked') through the shared `query()` helper --
+      // a SEPARATE pool connection from this transaction's `client`. Locking the row here with
+      // FOR UPDATE and then awaiting that other connection's write is a guaranteed self-deadlock:
+      // this transaction can't COMMIT (and release the lock) until promoteFromSignal returns, and
+      // promoteFromSignal can't return until it gets a lock this transaction is holding. The
+      // request hung indefinitely (never errored, never timed out) until the reverse proxy gave up
+      // with a 502. No FOR UPDATE is actually needed for this path: promoteFromSignal already
+      // guards against duplicate promotion itself (its own risk_signal_links lookup above).
+      const p = await client.query(
+        `SELECT id,house_id FROM governance_pulses WHERE id=$1 AND company_id=$2${decision === 'Promote to Risk' ? '' : ' FOR UPDATE'}`,
+        [input.pulse_entry_id, c]
+      );
       if (!p.rows[0]) throw new Error('Signal not found.');
       if (input.house_id && String(p.rows[0].house_id) !== String(input.house_id)) throw new Error('Signal does not belong to the selected service.');
     }
