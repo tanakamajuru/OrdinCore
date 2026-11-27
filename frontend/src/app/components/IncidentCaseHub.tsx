@@ -1017,6 +1017,32 @@ export function IncidentCaseHub() {
                           </ul>
                         )}
                         <div className="border border-border rounded-lg p-3 space-y-2">
+                          {/* 27 Nov 2026 fix (user-reported, confirmed via live repro + screen recording):
+                              picking a name from the directory dropdown below, then tapping a role
+                              checkbox, hit "Select at least one role" even though a role was tapped.
+                              The dropdown renders in normal document flow (deliberately, not absolute --
+                              25 Nov 2026 fix, to avoid being clipped by this modal's scroll area), so
+                              selecting a match (or simply blurring the name field, which closes it the
+                              same way) collapses that space immediately, shifting whatever sits below it
+                              upward right as a touch device's next tap arrives -- and the tap misses.
+                              Role selection now sits ABOVE the name input/dropdown so nothing above it
+                              ever moves, which fixes this deterministically rather than racing a timeout
+                              against an unpredictable next tap. */}
+                          <div className="flex flex-wrap gap-3 items-center">
+                            <select value={personDraftType} onChange={(e) => { setPersonDraftType(e.target.value as IncidentPersonType); setPersonDropdownOpen(true); }} className="h-9 px-2 rounded-md border border-border bg-background text-xs">
+                              <option value="client">Client</option>
+                              <option value="staff">Staff</option>
+                              <option value="external">External</option>
+                              <option value="unknown">Unknown</option>
+                            </select>
+                            {(Object.keys(ROLE_LABEL) as IncidentPersonRole[]).map((role) => (
+                              <label key={role} className="flex items-center gap-1 text-xs">
+                                <input type="checkbox" checked={personDraftRoles.includes(role)}
+                                  onChange={(e) => setPersonDraftRoles(e.target.checked ? [...personDraftRoles, role] : personDraftRoles.filter((r) => r !== role))} />
+                                {ROLE_LABEL[role]}
+                              </label>
+                            ))}
+                          </div>
                           <div>
                             <input
                               value={personDraftName}
@@ -1071,21 +1097,6 @@ export function IncidentCaseHub() {
                                 <p className="text-[11px] text-muted-foreground mt-1">No directory match — this will be added as an external/unknown person.</p>
                               );
                             })()}
-                          </div>
-                          <div className="flex flex-wrap gap-3 items-center">
-                            <select value={personDraftType} onChange={(e) => { setPersonDraftType(e.target.value as IncidentPersonType); setPersonDropdownOpen(true); }} className="h-9 px-2 rounded-md border border-border bg-background text-xs">
-                              <option value="client">Client</option>
-                              <option value="staff">Staff</option>
-                              <option value="external">External</option>
-                              <option value="unknown">Unknown</option>
-                            </select>
-                            {(Object.keys(ROLE_LABEL) as IncidentPersonRole[]).map((role) => (
-                              <label key={role} className="flex items-center gap-1 text-xs">
-                                <input type="checkbox" checked={personDraftRoles.includes(role)}
-                                  onChange={(e) => setPersonDraftRoles(e.target.checked ? [...personDraftRoles, role] : personDraftRoles.filter((r) => r !== role))} />
-                                {ROLE_LABEL[role]}
-                              </label>
-                            ))}
                           </div>
                           <Button type="button" variant="outline" size="sm"
                             onClick={() => {
