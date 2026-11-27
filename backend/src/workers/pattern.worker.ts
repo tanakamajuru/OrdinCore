@@ -317,6 +317,17 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     let cluster_status = 'Emerging';
     let trajectory = 'Stable';
 
+    // 27 Nov 2026 fix (user-reported, confirmed live: a Medication risk candidate titled only
+    // "Matt H" whose 3 underlying signals included one for Terry W, a different resident at the
+    // same house): a 'service'-scope cluster is deliberately house-wide (any resident sharing the
+    // domain feeds it — see the cluster-lookup query above, service_user_id IS NULL). Every
+    // risk_candidates INSERT below unconditionally stamped linked_person from whichever signal
+    // happened to be the one currently triggering the rule, so a house-wide candidate silently
+    // read as one person's personal pattern the moment two different residents' signals landed in
+    // the same service-scope cluster. Only a genuine 'person'-scope candidate (service_user_id-keyed,
+    // never mixed across residents) may carry a single name.
+    const candidateLinkedPerson = scope === 'person' ? related_person : null;
+
     // 1. Pattern Emerging: ≥{triggerCount} same-domain signals within {windowDays} days
     //    (both values come from threshold_rules for this service's sector + domain).
     if (qualifyingWindow.length >= triggerCount) {
@@ -326,7 +337,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
              VALUES ($1, $2, $3, $4, 'Pattern Emerging', $5, $6)
              ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person
              WHERE risk_candidates.status NOT IN ('Dismissed', 'Promoted')`,
-            [company_id, house_id, cluster_id, domain, qualifyingWindow.map(s => s.id), related_person]
+            [company_id, house_id, cluster_id, domain, qualifyingWindow.map(s => s.id), candidateLinkedPerson]
         );
     }
 
@@ -341,7 +352,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
              VALUES ($1, $2, $3, $4, 'Person-Level Pattern Emerging', $5, $6)
              ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person
              WHERE risk_candidates.status NOT IN ('Dismissed', 'Promoted')`,
-            [company_id, house_id, cluster_id, domain, qualifyingWindow.map(s => s.id), related_person]
+            [company_id, house_id, cluster_id, domain, qualifyingWindow.map(s => s.id), candidateLinkedPerson]
         );
     }
 
@@ -356,7 +367,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
              VALUES ($1, $2, $3, $4, 'Risk Review Required', $5, $6) 
              ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person
              WHERE risk_candidates.status NOT IN ('Dismissed', 'Promoted')`,
-            [company_id, house_id, cluster_id, domain, qualifying10d.map(s => s.id), related_person]
+            [company_id, house_id, cluster_id, domain, qualifying10d.map(s => s.id), candidateLinkedPerson]
         );
     }
 
@@ -371,7 +382,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
              VALUES ($1, $2, $3, $4, 'Immediate Risk', $5, $6) 
              ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person
              WHERE risk_candidates.status NOT IN ('Dismissed', 'Promoted')`,
-            [company_id, house_id, cluster_id, domain, signals48h.map(s => s.id), related_person]
+            [company_id, house_id, cluster_id, domain, signals48h.map(s => s.id), candidateLinkedPerson]
         );
     }
 
@@ -387,7 +398,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
              VALUES ($1, $2, $3, $4, 'Deteriorating Trajectory', $5, $6) 
              ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person
              WHERE risk_candidates.status NOT IN ('Dismissed', 'Promoted')`,
-            [company_id, house_id, cluster_id, domain, signals7d.map(s => s.id), related_person]
+            [company_id, house_id, cluster_id, domain, signals7d.map(s => s.id), candidateLinkedPerson]
         );
     }
 
@@ -451,7 +462,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
              VALUES ($1, $2, $3, $4, 'Control Failure (Recurrence)', $5, $6) 
              ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person
              WHERE risk_candidates.status NOT IN ('Dismissed', 'Promoted')`,
-            [company_id, house_id, cluster_id, domain, [pulse_id], related_person]
+            [company_id, house_id, cluster_id, domain, [pulse_id], candidateLinkedPerson]
         );
     }
 

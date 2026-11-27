@@ -1197,12 +1197,30 @@ export class RisksService {
       // candidate promoted without a cluster (critical-exception path) left its evidence signals
       // with no link to the new risk at all — individually unreachable from it.
       if (Array.isArray(candidate.source_signals) && candidate.source_signals.length) {
+        // 27 Nov 2026 fix (QA-reported, confirmed live: "duplicate key value violates unique
+        // constraint idx_risk_signal_links_cluster_pulse"): the pattern worker already links
+        // every qualifying signal to its cluster the moment it's evaluated (pattern.worker.ts),
+        // so for any pattern-linked candidate every one of these pulses is ALREADY in
+        // risk_signal_links with this exact (cluster_id, pulse_entry_id) pair -- that pair has
+        // its own partial unique index (migration 032), separate from (risk_id, pulse_entry_id).
+        // The NOT EXISTS guard below only ever checked the latter, so inserting a second row for
+        // the same (cluster_id, pulse_entry_id) always violated the former. Backfill risk_id onto
+        // the existing cluster-linked row instead of inserting a duplicate; only a genuinely new
+        // pulse (e.g. a critical-exception candidate with no cluster) gets a fresh INSERT.
+        await lockClient.query(
+          `UPDATE risk_signal_links SET risk_id = $1
+            WHERE cluster_id = $2 AND pulse_entry_id = ANY($3::uuid[]) AND risk_id IS NULL`,
+          [risk.id, sourceCluster || null, candidate.source_signals]
+        );
         await lockClient.query(
           `INSERT INTO risk_signal_links (id, risk_id, cluster_id, pulse_entry_id, linked_by, linked_at)
            SELECT gen_random_uuid(), $1, $2, s.id, $3, NOW()
              FROM unnest($4::uuid[]) AS s(id)
             WHERE NOT EXISTS (
               SELECT 1 FROM risk_signal_links x WHERE x.risk_id = $1 AND x.pulse_entry_id = s.id
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM risk_signal_links x WHERE x.cluster_id = $2 AND x.pulse_entry_id = s.id
             )`,
           [risk.id, sourceCluster || null, user_id, candidate.source_signals]
         );
