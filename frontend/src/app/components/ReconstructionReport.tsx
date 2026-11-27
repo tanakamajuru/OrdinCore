@@ -65,6 +65,9 @@ export function ReconstructionReport() {
   const [recommendations, setRecommendations] = useState<string[]>([]);
   const [limitations, setLimitations] = useState<string[]>([]);
   const [frozenAt, setFrozenAt] = useState<string|null>(null);
+  // 27 Nov 2026 fix (developer brief §02, confirmed live): leadership_commentary is captured on
+  // the incident and shown on Incident Detail, but this report never read it at all.
+  const [leadershipCommentary, setLeadershipCommentary] = useState<string | null>(null);
   // 22 Nov 2026 brief -> Serious Incident workflow: when the governance-timeline evidence
   // fails to load, the report must say so everywhere a positive assurance claim or a
   // fabricated metric would otherwise appear — never default to "Oversight Present".
@@ -124,6 +127,7 @@ export function ReconstructionReport() {
         setFindings(reportData.findings || ['No findings could be derived from the records available.']);
         setRecommendations(reportData.recommendations || []);
         setLimitations(reportData.limitations || []);
+        setLeadershipCommentary(reportData.leadership_commentary || null);
         setEvidenceUnavailable(false);
       } catch (err) {
         console.error("Failed to load timeline data", err);
@@ -515,6 +519,15 @@ export function ReconstructionReport() {
                   ))}
                 </div>
               </div>
+
+              {leadershipCommentary && (
+                <div>
+                  <div className=" text-foreground mb-3">Leadership Commentary</div>
+                  <div className="bg-muted border border-border rounded p-4">
+                    <div className="text-sm text-foreground whitespace-pre-wrap">{leadershipCommentary}</div>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <div className=" text-foreground mb-3">Report Certification</div>

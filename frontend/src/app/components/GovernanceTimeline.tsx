@@ -34,6 +34,7 @@ interface IncidentDetail {
   category_name: string;
   location: string;
   updated_at: string;
+  leadership_commentary?: string;
 }
 
 
@@ -206,10 +207,15 @@ export function GovernanceTimeline() {
     if (!commentary.trim()) { toast.error('Please enter your commentary.'); return; }
     setSavingCommentary(true);
     try {
-      await apiClient.patch(`/incidents/${incidentId}`, { leadership_commentary: commentary.trim() });
+      const saved = commentary.trim();
+      await apiClient.patch(`/incidents/${incidentId}`, { leadership_commentary: saved });
       toast.success('Leadership commentary saved.');
+      // 27 Nov 2026 fix (developer brief §02, confirmed live): this reset the form to empty and
+      // never stored the saved text anywhere, so reopening "Add Leadership Commentary" (and the
+      // incident itself) never showed what was actually saved -- there was no way to confirm the
+      // save had worked for this case.
+      setIncident((prev) => prev ? { ...prev, leadership_commentary: saved } : prev);
       setShowCommentary(false);
-      setCommentary('');
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'Failed to save commentary.');
     } finally {
@@ -457,6 +463,17 @@ export function GovernanceTimeline() {
               </CardContent>
             </Card>
 
+            {incident.leadership_commentary && (
+              <Card className="border-2 border-border">
+                <CardHeader>
+                  <CardTitle className="text-lg">Leadership Commentary</CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="text-sm text-foreground whitespace-pre-wrap">{incident.leadership_commentary}</div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Actions */}
             <Card className="border-2 border-border">
               <CardHeader>
@@ -481,11 +498,11 @@ export function GovernanceTimeline() {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => setShowCommentary(true)}
+                    onClick={() => { setCommentary(incident.leadership_commentary || ''); setShowCommentary(true); }}
                     className="w-full border-border hover:bg-primary hover:text-primary-foreground"
                   >
                     <Users className="w-4 h-4 mr-2" />
-                    Add Leadership Commentary
+                    {incident.leadership_commentary ? 'Edit Leadership Commentary' : 'Add Leadership Commentary'}
                   </Button>
                 </div>
               </CardContent>

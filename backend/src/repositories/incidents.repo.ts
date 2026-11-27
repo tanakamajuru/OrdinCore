@@ -441,15 +441,31 @@ export const incidentsRepo = {
     // Sources that failed to load become explicit limitations (never a silent "no gap").
     const evidenceGaps: string[] = [];
 
+    // 27 Nov 2026 fix (developer brief, "Serious Incident Reconstruction" §01, confirmed live):
+    // every house-wide query below pulled in EVERY resident's risks/escalations/signals within
+    // 30 days, not just the incident's own client -- a medication incident for one resident
+    // showed a different resident's unrelated records in the main reconstruction timeline.
+    // The incident's client is carried on persons_involved as {id, name, type:'client', roles}
+    // (IncidentCaseHub.tsx) -- id is the service_user's stable id when the person was picked
+    // from the directory. Only tighten scoping when a client id is actually known; an incident
+    // with no identified client (e.g. "no individual affected", or legacy free-text data)
+    // keeps today's house-wide behaviour rather than silently hiding evidence it can't attribute.
+    const clientIds: string[] = (Array.isArray(incident.persons_involved) ? incident.persons_involved : [])
+      .filter((p: any) => p && p.type === 'client' && p.id)
+      .map((p: any) => p.id);
+
     // 1. Get related risk events
+    // Scoping fix: $5 always carries clientIds (possibly empty) so an incident with an
+    // identified client only pulls that client's house-wide risks, never a different
+    // resident's -- an explicitly incident-linked risk ($4) is included regardless of client.
     try {
       const linkedRiskIds = incident.linked_risks?.map((r: any) => r.id) || [];
+      const clientScope = clientIds.length > 0 ? `AND (r.service_user_id = ANY($5::uuid[]) OR r.service_user_id IS NULL)` : '';
       const riskIdsFilter = linkedRiskIds.length > 0 ? `OR r.id = ANY($4::uuid[])` : '';
-      const params: any[] = [company_id, incident.house_id, incident.occurred_at];
-      if (linkedRiskIds.length > 0) params.push(linkedRiskIds);
+      const params: any[] = [company_id, incident.house_id, incident.occurred_at, linkedRiskIds, clientIds];
 
       const riskResult = await query(
-        `SELECT 
+        `SELECT
           'risk' as source_type,
           r.id as source_id,
           'Risk Logged' as label,
@@ -459,10 +475,11 @@ export const incidentsRepo = {
           r.created_at as timestamp,
           false as gap_flag
         FROM risks r
-        WHERE (r.company_id = $1 
+        WHERE (r.company_id = $1
           AND r.house_id = $2
           AND r.created_at >= $3::timestamp - INTERVAL '30 days'
-          AND r.created_at <= $3::timestamp)
+          AND r.created_at <= $3::timestamp
+          ${clientScope})
           ${riskIdsFilter}
         ORDER BY r.created_at ASC`,
         params
@@ -472,15 +489,15 @@ export const incidentsRepo = {
       console.log('Risks table query failed:', err);
     }
 
-    // 2. Get related escalation events
+    // 2. Get related escalation events — same client-scoping fix as risks above.
     try {
       const linkedEscIds = incident.linked_escalations?.map((e: any) => e.id) || [];
+      const clientScope = clientIds.length > 0 ? `AND (e.service_user_id = ANY($5::uuid[]) OR e.service_user_id IS NULL)` : '';
       const escIdsFilter = linkedEscIds.length > 0 ? `OR e.id = ANY($4::uuid[])` : '';
-      const params: any[] = [company_id, incident.house_id, incident.occurred_at];
-      if (linkedEscIds.length > 0) params.push(linkedEscIds);
+      const params: any[] = [company_id, incident.house_id, incident.occurred_at, linkedEscIds, clientIds];
 
       const escalationResult = await query(
-        `SELECT 
+        `SELECT
           'escalation' as source_type,
           e.id as source_id,
           'Escalation Raised' as label,
@@ -490,10 +507,11 @@ export const incidentsRepo = {
           e.created_at as timestamp,
           false as gap_flag
         FROM escalations e
-        WHERE (e.company_id = $1 
+        WHERE (e.company_id = $1
           AND e.house_id = $2
           AND e.created_at >= $3::timestamp - INTERVAL '30 days'
-          AND e.created_at <= $3::timestamp)
+          AND e.created_at <= $3::timestamp
+          ${clientScope})
           ${escIdsFilter}
         ORDER BY e.created_at ASC`,
         params
@@ -503,15 +521,15 @@ export const incidentsRepo = {
       console.log('Escalations table query failed:', err);
     }
 
-    // 3. Get related governance pulse events (Signals)
+    // 3. Get related governance pulse events (Signals) — same client-scoping fix.
     try {
       const domains = incident.linked_risks?.map((r: any) => r.risk_domain).filter(Boolean) || [];
       const domainFilter = domains.length > 0 ? `AND p.risk_domain && $4` : '';
-      const params: any[] = [company_id, incident.house_id, incident.occurred_at];
-      if (domains.length > 0) params.push(domains);
-      
+      const clientScope = clientIds.length > 0 ? `AND (p.service_user_id = ANY($5::uuid[]) OR p.service_user_id IS NULL)` : '';
+      const params: any[] = [company_id, incident.house_id, incident.occurred_at, domains, clientIds];
+
       const pulseResult = await query(
-        `SELECT 
+        `SELECT
           'pulse' as source_type,
           p.id as source_id,
           'Signal Captured' as label,
@@ -521,11 +539,12 @@ export const incidentsRepo = {
           p.entry_date as timestamp,
           false as gap_flag
         FROM governance_pulses p
-        WHERE p.company_id = $1 
+        WHERE p.company_id = $1
           AND p.house_id = $2
           AND p.entry_date >= $3::date - INTERVAL '30 days'
           AND p.entry_date <= $3::date
           ${domainFilter}
+          ${clientScope}
         ORDER BY p.entry_date ASC`,
         params
       );
@@ -736,6 +755,13 @@ export const incidentsRepo = {
       findings,
       recommendations,
       limitations,
+      // 27 Nov 2026 fix (developer brief, "Serious Incident Reconstruction" §02, confirmed live):
+      // leadership_commentary is captured and saved on the incident (IncidentDetail.tsx sends it,
+      // this.update() persists it), but the reconstruction report/PDF never read it at all, so a
+      // reviewer's commentary silently never reached the exported record. There is no reviewer/
+      // timestamp attribution column for this field yet (only the free-text itself) -- surfaced
+      // as-is here; attributing it to a specific reviewer and date needs its own small migration.
+      leadership_commentary: incident.leadership_commentary || null,
       frozen: false
     };
   },
