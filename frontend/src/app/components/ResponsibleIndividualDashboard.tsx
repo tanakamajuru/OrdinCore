@@ -143,6 +143,51 @@ function Donut({ data, centerLabel }: { data: { name: string; value: number; col
   );
 }
 
+// "Return to Registered Manager for review" decision modal (brief, 27 Nov 2026).
+function ReturnToRmModal({ escalation, rms, onClose, onSaved }: { escalation: any; rms: any[]; onClose: () => void; onSaved: () => void }) {
+  const [assignedTo, setAssignedTo] = useState('');
+  const [reason, setReason] = useState('');
+  const [instructions, setInstructions] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    if (!assignedTo) { toast.error('Choose a Registered Manager.'); return; }
+    if (!reason.trim()) { toast.error('Enter why the case is being returned.'); return; }
+    setSaving(true);
+    try {
+      await apiClient.post(`/escalations/${escalation.id}/return-to-rm`, { assigned_to: assignedTo, reason, instructions });
+      toast.success('Escalation returned to the Registered Manager.');
+      onSaved();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to return the escalation.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-card border border-border rounded-xl p-5 w-full max-w-md shadow-lg">
+        <h3 className="font-bold mb-1">Return to Registered Manager for review</h3>
+        <p className="text-xs text-muted-foreground mb-4">{escalation.risk_title || escalation.reason || 'Escalation'}{escalation.service_name ? ` · ${escalation.service_name}` : ''}</p>
+        <label className="text-xs font-bold text-muted-foreground">Registered Manager</label>
+        <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="w-full border border-border rounded-lg p-2 text-sm mb-3 mt-1">
+          <option value="">Select an eligible RM…</option>
+          {rms.map((rm) => <option key={rm.id} value={rm.id}>{rm.first_name} {rm.last_name}</option>)}
+        </select>
+        <label className="text-xs font-bold text-muted-foreground">Why is this being returned?</label>
+        <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} className="w-full border border-border rounded-lg p-2 text-sm mb-3 mt-1" placeholder="Reason for the return" />
+        <label className="text-xs font-bold text-muted-foreground">What should the RM review? (optional)</label>
+        <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={2} className="w-full border border-border rounded-lg p-2 text-sm mb-4 mt-1" placeholder="Instructions / evidence expected" />
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm border border-border">Cancel</button>
+          <button onClick={submit} disabled={saving} className="px-4 py-2 rounded-lg text-sm bg-primary text-primary-foreground disabled:opacity-50">{saving ? 'Saving…' : 'Return case'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ResponsibleIndividualDashboard() {
   const {data:evidenceSummary}=useCanonicalEvidenceSummary();
   const { user } = useAuth();
@@ -155,6 +200,8 @@ export function ResponsibleIndividualDashboard() {
   const [reviewQueue, setReviewQueue] = useState<any[]>([]);
   const [effectivenessSummary, setEffectivenessSummary] = useState<any>({});
   const [assuranceSummary, setAssuranceSummary] = useState<any>(null);
+  const [rms, setRms] = useState<any[]>([]);
+  const [returnTarget, setReturnTarget] = useState<any>(null);
   // Authoritative org-wide counts (full dataset) for headline tiles; falls back to loaded lists.
   const [reportMetrics, setReportMetrics] = useState<any>(null);
 
@@ -165,7 +212,7 @@ export function ResponsibleIndividualDashboard() {
       setLoading(true);
       const end = new Date().toISOString();
       const start = new Date(Date.now() - 30 * 86400000).toISOString();
-      const [rk, esc, st, rv, rq, effSummary, asum, rs] = await Promise.all([
+      const [rk, esc, st, rv, rq, effSummary, asum, rs, rmUsers] = await Promise.all([
         apiClient.get(`/risks?limit=200`).catch(() => ({})),
         apiClient.getEscalations(1, 200).catch(() => ({})),
         apiClient.getEscalationStats().catch(() => ({})),
@@ -174,6 +221,7 @@ export function ResponsibleIndividualDashboard() {
         apiClient.get(`/actions/effectiveness-summary?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`).catch(() => ({})),
         apiClient.get(`/ri/assurance-summary`).catch(() => ({})),
         apiClient.get(`/reports/summary`).catch(() => ({})),
+        apiClient.get(`/users?role=REGISTERED_MANAGER&limit=100`).catch(() => ({})),
       ]);
       setRisks(asArray(unwrap(rk)));
       setEscalations(asArray(unwrap(esc)));
@@ -182,6 +230,7 @@ export function ResponsibleIndividualDashboard() {
       setReviewQueue(asArray(unwrap(rq)));
       setEffectivenessSummary(unwrap(effSummary)?.org_summary || {});
       setAssuranceSummary(unwrap(asum) || null);
+      setRms(asArray(unwrap(rmUsers)));
       { const s = unwrap(rs); setReportMetrics(s && !Array.isArray(s) ? (s.metrics || null) : null); }
     } catch (err) {
       console.error(err);
@@ -207,22 +256,19 @@ export function ResponsibleIndividualDashboard() {
   const openEsc = escalations.filter(isOpenEscalation);
   const overdueEsc = escalations.filter(e => e.overdue).length;
 
-  // 27 Nov 2026 brief ("RI escalation oversight"): the panel previously showed the first six open
-  // escalations by status alone, so a routine RM-owned escalation could appear under "Requiring RI
-  // Oversight" even though it was never escalated to the RI and the RM was already working it.
-  // Two things now genuinely qualify, mirroring the handover rule guidedWork.service.ts already
-  // uses for RI My Work (escalated_to = this RI, still open):
-  //   1. Director handover: escalated_to is this RI -- a decision is actually theirs to make.
-  //   2. Agreed oversight exception: the escalation is overdue (e.is_overdue, the same flag the
-  //      Escalation assurance donut above already uses) while still owned by someone else -- the
-  //      RI needs visibility, but the owner keeps the task ("View escalation", not a decision).
+  // 27 Nov 2026 brief ("Escalation SLA and RI handback"): "requires RI oversight" is now a
+  // persisted fact (ri_oversight_active, set by a Critical flag, a Director-breach auto-transfer,
+  // or an explicit RI return — see escalations.service.ts) rather than a live heuristic re-derived
+  // from ownership/overdue each render. A case stays visible here across the whole handback cycle,
+  // even while the RM or Director currently owns it, until it closes. "A decision is due" only
+  // when the RI is the current owner (escalated_to = this RI); otherwise it is oversight-only.
   const riOversightEsc = openEsc
-    .filter(e => e.escalated_to === user?.id || e.overdue)
+    .filter(e => e.ri_oversight_active || e.escalated_to === user?.id || e.overdue)
     .map(e => {
       const isHandover = e.escalated_to === user?.id;
       return {
         ...e,
-        oversightReason: isHandover ? 'Director handed over for an RI decision' : 'Overdue follow-up meets RI oversight rule',
+        oversightReason: e.ri_oversight_reason || (isHandover ? 'Director handed over for an RI decision' : 'Overdue follow-up meets RI oversight rule'),
         oversightOwnerName: isHandover ? 'RI' : (e.escalated_to_name || 'Registered Manager'),
         oversightIsDecision: isHandover,
       };
@@ -395,6 +441,14 @@ export function ResponsibleIndividualDashboard() {
                       <span className={`text-xs font-medium rounded px-2 py-0.5 ${e.oversightIsDecision ? "bg-amber-100 text-amber-800" : "bg-blue-50 text-blue-700"}`}>
                         {e.oversightIsDecision ? "Review escalation" : "View escalation"}
                       </span>
+                      {e.oversightIsDecision && (
+                        <button
+                          onClick={(ev) => { ev.stopPropagation(); setReturnTarget(e); }}
+                          className="block mt-1 text-xs text-primary font-medium hover:underline"
+                        >
+                          Return to RM →
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -404,6 +458,14 @@ export function ResponsibleIndividualDashboard() {
           </div>
         </div>
       </div>
+      {returnTarget && (
+        <ReturnToRmModal
+          escalation={returnTarget}
+          rms={rms}
+          onClose={() => setReturnTarget(null)}
+          onSaved={() => { setReturnTarget(null); load(); }}
+        />
+      )}
     </div>
   );
 }

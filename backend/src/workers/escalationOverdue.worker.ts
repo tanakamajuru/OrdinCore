@@ -60,8 +60,12 @@ export const startEscalationOverdueWorker = () => {
       let reassigned = 0;
       for (const esc of overdue.rows) {
         const freshDue = escalationDueBy(esc.trigger_type);
-        const nextRole = NEXT_ROLE[String(esc.current_role || '').toUpperCase()];
+        const currentRole = String(esc.current_role || '').toUpperCase();
+        const nextRole = NEXT_ROLE[currentRole];
         const nextUser = nextRole ? await findUserForRole(esc.company_id, nextRole) : null;
+        // Agreed routing: a Director breach is assigned to the RI as a decision due and must stay
+        // on the RI oversight list; an RM breach only climbs to the Director (brief table).
+        const flagsRi = nextRole === 'RESPONSIBLE_INDIVIDUAL' || currentRole === 'RESPONSIBLE_INDIVIDUAL' || currentRole === 'RI';
 
         try {
           if (nextUser && nextUser !== esc.escalated_to) {
@@ -71,6 +75,7 @@ export const startEscalationOverdueWorker = () => {
                   SET escalated_to = $1, due_by = $2,
                       priority = CASE WHEN priority = 'Critical' THEN priority ELSE 'Urgent' END,
                       updated_at = NOW()
+                      ${flagsRi ? `, ri_oversight_active = TRUE, ri_oversight_reason = 'Automatically reassigned after Director SLA breach'` : ''}
                 WHERE id = $3`,
               [nextUser, freshDue, esc.id]
             );
@@ -95,6 +100,7 @@ export const startEscalationOverdueWorker = () => {
                   SET due_by = $1,
                       priority = CASE WHEN priority = 'Critical' THEN priority ELSE 'Urgent' END,
                       updated_at = NOW()
+                      ${flagsRi ? `, ri_oversight_active = TRUE, ri_oversight_reason = COALESCE(ri_oversight_reason, 'RI decision due')` : ''}
                 WHERE id = $2`,
               [freshDue, esc.id]
             );

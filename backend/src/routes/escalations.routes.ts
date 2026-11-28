@@ -130,6 +130,10 @@ router.get('/:id/actions', requireAuth, requireTenant, escalationsController.get
  *         description: Success
  */
 router.post('/:id/assign', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), escalationsController.assignEscalation.bind(escalationsController));
+// "Escalation SLA and RI handback" brief: the explicit RI return decision, distinct from generic
+// /assign -- only the RI (or an admin) may issue it, since it starts a fresh SLA and persists the
+// case on the RI oversight list.
+router.post('/:id/return-to-rm', requireAuth, requireTenant, requireRole('RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), escalationsController.returnToRegisteredManager.bind(escalationsController));
 /**
  * @openapi
  * /api/v1/escalations/{id}/priority:

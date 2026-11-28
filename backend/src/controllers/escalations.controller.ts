@@ -215,10 +215,23 @@ export class EscalationsController {
   async assignEscalation(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      const result = await escalationsService.assignEscalation(req.params.id, company_id, req.user!.user_id, req.body.assigned_to);
+      const result = await escalationsService.assignEscalation(req.params.id, company_id, req.user!.user_id, req.body.assigned_to, req.body.reason);
       return res.json({ success: true, data: result, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to assign escalation';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async returnToRegisteredManager(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await escalationsService.returnToRegisteredManager(
+        req.params.id, company_id, req.user!.user_id, req.body.assigned_to, req.body.reason, req.body.instructions
+      );
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to return escalation to Registered Manager';
       return res.status(400).json({ success: false, message, errors: [] });
     }
   }

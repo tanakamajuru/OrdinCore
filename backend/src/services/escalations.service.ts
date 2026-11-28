@@ -642,7 +642,7 @@ export class EscalationsService {
     return actions.rows;
   }
 
-  async assignEscalation(id: string, company_id: string, user_id: string, assigned_to: string) {
+  async assignEscalation(id: string, company_id: string, user_id: string, assigned_to: string, reason?: string) {
     const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
     if (!escalation.rows[0]) throw new Error('Escalation not found');
 
@@ -655,13 +655,65 @@ export class EscalationsService {
       [assigned_to, id, company_id]
     );
 
+    const taker = (await query(`SELECT first_name || ' ' || last_name AS name, role FROM users WHERE id = $1`, [user_id])).rows[0];
+    const desc = `Handed over by ${taker?.name || 'a user'}${reason ? ` — ${reason}` : ''}`;
     await query(
       `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
-       VALUES ($1,$2,$3,'assigned','Escalation reassigned',$4)`,
-      [uuidv4(), id, company_id, user_id]
+       VALUES ($1,$2,$3,'assigned',$4,$5)`,
+      [uuidv4(), id, company_id, desc, user_id]
     );
 
     return result.rows[0];
+  }
+
+  /**
+   * "Escalation SLA and RI handback" brief (27 Nov 2026): a named, explicit RI decision --
+   * distinct from generic reassignment -- that transfers ownership to the chosen RM, starts a
+   * fresh response SLA from the moment of return, and keeps the case on the RI oversight list
+   * (ri_oversight_active) until closure regardless of who the ladder subsequently moves it to.
+   * Generic reassignment (assignEscalation) deliberately does none of this.
+   */
+  async returnToRegisteredManager(id: string, company_id: string, ri_user_id: string, rm_user_id: string, reason: string, instructions?: string) {
+    const escalation = (await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id])).rows[0];
+    if (!escalation) throw new Error('Escalation not found');
+    if (escalation.status === 'Resolved' || escalation.status === 'Closed') {
+      throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
+    }
+    if (!reason || !reason.trim()) throw new Error('A reason for the return is required.');
+
+    const rm = (await query(
+      `SELECT id, first_name || ' ' || last_name AS name FROM users
+        WHERE id = $1 AND company_id = $2 AND role IN ('REGISTERED_MANAGER', 'RM') AND status = 'active'`,
+      [rm_user_id, company_id]
+    )).rows[0];
+    if (!rm) throw new Error('Choose an eligible, active Registered Manager for this service.');
+
+    const freshDue = escalationDueBy(escalation.trigger_type);
+    const updated = (await query(
+      `UPDATE escalations
+          SET escalated_to = $1, due_by = $2, ri_oversight_active = TRUE,
+              ri_oversight_reason = 'Returned by RI for Registered Manager review', updated_at = NOW()
+        WHERE id = $3 AND company_id = $4 RETURNING *`,
+      [rm.id, freshDue, id, company_id]
+    )).rows[0];
+
+    const description = `Returned by RI for Registered Manager review — ${reason}`
+      + (instructions ? `. What to review: ${instructions}` : '')
+      + `. New response deadline: ${freshDue.toISOString()}`;
+    await query(
+      `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
+       VALUES ($1,$2,$3,'ri_return',$4,$5)`,
+      [uuidv4(), id, company_id, description, ri_user_id]
+    );
+
+    await notificationsService.create({
+      company_id, user_id: rm.id, type: 'RI_RETURN',
+      title: 'Escalation returned to you for review',
+      body: `The Responsible Individual has returned an escalation for your review: ${reason}`,
+      link: `/escalation-log?focus=${id}`,
+    });
+
+    return updated;
   }
 
   async updatePriority(id: string, company_id: string, user_id: string, priority: string) {
@@ -674,8 +726,12 @@ export class EscalationsService {
 
     // Normalize priority to capitalize first letter to match DB constraint
     const normalizedPriority = priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase();
+    // Agreed routing: a Critical case is flagged to the RI for oversight immediately, without
+    // changing the operational owner (brief table, "Critical or agreed material breach").
+    const flagRi = normalizedPriority === 'Critical';
     const result = await query(
-      `UPDATE escalations SET priority = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3 RETURNING *`,
+      `UPDATE escalations SET priority = $1, updated_at = NOW()${flagRi ? `, ri_oversight_active = TRUE, ri_oversight_reason = COALESCE(ri_oversight_reason, 'Critical severity — flagged for RI oversight')` : ''}
+        WHERE id = $2 AND company_id = $3 RETURNING *`,
       [normalizedPriority, id, company_id]
     );
 
