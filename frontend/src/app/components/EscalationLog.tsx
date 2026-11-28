@@ -547,10 +547,10 @@ export function EscalationLog() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-5 [&>*]:min-w-0">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 [&>*]:min-w-0">
           {/* List Section — ~40% of the width; the review gets ~60% so the RM has room to read the
               current position and reach the decision controls (improved-original layout). */}
-          <div className="xl:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-4">
             {/* Filter tabs — organise the queue by what needs doing */}
             <div className="flex flex-wrap items-center gap-2 mb-3 border-b border-border">
               {([
@@ -668,13 +668,13 @@ export function EscalationLog() {
           </div>
 
           {/* Details & Actions Section — the wider column (~60%). */}
-          <div className="xl:col-span-3">
+          <div className="lg:col-span-3">
             {selectedEscalation ? (
               // Flow with the page (no sticky) so BOTH columns scroll together instead of the detail
               // staying pinned while the list scrolls — the reported "one side scrolls" clumsiness.
               <div className="space-y-6">
                 <button type="button" onClick={() => setSelectedEscalation(null)}
-                  className="xl:hidden inline-flex items-center gap-1.5 text-sm text-primary font-medium">
+                  className="lg:hidden inline-flex items-center gap-1.5 text-sm text-primary font-medium">
                   ← Back to escalations
                 </button>
                 <Card className="border-2 border-border shadow-xl">
