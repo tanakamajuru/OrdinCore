@@ -51,7 +51,7 @@ router.post('/force-password-reset', requireAuth, requireTenant, requireRole('SU
  *       200:
  *         description: Success
  */
-router.get('/', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.findAll.bind(usersController));
+router.get('/', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'RESPONSIBLE_INDIVIDUAL'), usersController.findAll.bind(usersController));
 /**
  * @openapi
  * /api/v1/users/{id}:
