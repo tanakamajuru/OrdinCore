@@ -49,12 +49,14 @@ export const incidentsRepo = {
     let sql = `SELECT i.*, ic.name AS category_name, h.name AS house_name,
         u1.first_name || ' ' || u1.last_name AS created_by_name,
         u2.first_name || ' ' || u2.last_name AS assigned_to_name,
+        u3.first_name || ' ' || u3.last_name AS leadership_commentary_by_name,
         (ra.id IS NOT NULL) AS ri_acknowledged
       FROM incidents i
       LEFT JOIN incident_categories ic ON ic.id = i.category_id
       LEFT JOIN houses h ON h.id = i.house_id
       LEFT JOIN users u1 ON u1.id = i.created_by
       LEFT JOIN users u2 ON u2.id = i.assigned_to
+      LEFT JOIN users u3 ON u3.id = i.leadership_commentary_by
       LEFT JOIN ri_acknowledgements ra ON ra.incident_id = i.id
       WHERE i.id = $1`;
     if (company_id) { sql += ' AND i.company_id = $2'; params.push(company_id); }
@@ -299,6 +301,7 @@ export const incidentsRepo = {
       'assigned_to', 'resolved_at', 'follow_up_required',
       'la_referral', 'cqc_notification', 'police_reference', 'other_references',
       'is_foreseeable', 'risk_factors', 'preventive_measures', 'leadership_commentary',
+      'leadership_commentary_by', 'leadership_commentary_at',
       'lessons_learned', 'learning_shared',
       // 22 Nov 2026 brief -> Serious Incident workflow: stamped once by incidents.service.ts
       // update() on the first Open -> In Progress transition; anchors the Review Incident
@@ -758,10 +761,12 @@ export const incidentsRepo = {
       // 27 Nov 2026 fix (developer brief, "Serious Incident Reconstruction" §02, confirmed live):
       // leadership_commentary is captured and saved on the incident (IncidentDetail.tsx sends it,
       // this.update() persists it), but the reconstruction report/PDF never read it at all, so a
-      // reviewer's commentary silently never reached the exported record. There is no reviewer/
-      // timestamp attribution column for this field yet (only the free-text itself) -- surfaced
-      // as-is here; attributing it to a specific reviewer and date needs its own small migration.
+      // reviewer's commentary silently never reached the exported record.
+      // Attribution (28 Nov 2026, "Escalation SLA and RI handback" follow-up): incidents.service.ts
+      // update() now stamps leadership_commentary_by/at whenever the text changes (migration 219).
       leadership_commentary: incident.leadership_commentary || null,
+      leadership_commentary_by: incident.leadership_commentary_by_name || null,
+      leadership_commentary_at: incident.leadership_commentary_at || null,
       frozen: false
     };
   },

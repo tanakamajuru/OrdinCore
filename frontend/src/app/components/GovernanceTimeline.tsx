@@ -35,6 +35,8 @@ interface IncidentDetail {
   location: string;
   updated_at: string;
   leadership_commentary?: string;
+  leadership_commentary_by_name?: string;
+  leadership_commentary_at?: string;
 }
 
 
@@ -202,6 +204,23 @@ export function GovernanceTimeline() {
     toast.success('Timeline exported.');
   };
 
+  // Incident reconstruction brief, finding 03: each timeline event names its evidence source and
+  // id but gave no way to actually open it -- a reviewer had to go find the record by hand. Build
+  // the same URL the rest of the app already uses for that source type. The destination route
+  // itself enforces sign-in and tenant/house-scope access (requireAuth + the same scope checks
+  // every other page uses) -- this only ever constructs a link, it never bypasses them.
+  const evidenceUrl = (sourceType: string, sourceId: string): string | null => {
+    switch (sourceType) {
+      case 'risk': return `/risk-register/${sourceId}`;
+      case 'closure': return `/risk-register/${sourceId}`; // source_id is the closed risk's id
+      case 'escalation': return `/escalation-log?focus=${sourceId}`;
+      case 'pulse': return `/signals/${sourceId}`;
+      case 'action': return `/my-actions?focus=${sourceId}`;
+      case 'effectiveness': return `/effectiveness?focus=${sourceId}`;
+      default: return null;
+    }
+  };
+
   // Persist a Registered Manager / leadership commentary onto the incident record.
   const saveCommentary = async () => {
     if (!commentary.trim()) { toast.error('Please enter your commentary.'); return; }
@@ -214,7 +233,14 @@ export function GovernanceTimeline() {
       // never stored the saved text anywhere, so reopening "Add Leadership Commentary" (and the
       // incident itself) never showed what was actually saved -- there was no way to confirm the
       // save had worked for this case.
-      setIncident((prev) => prev ? { ...prev, leadership_commentary: saved } : prev);
+      // Attribution (28 Nov 2026): the PATCH endpoint returns the raw row (no name join), so show
+      // "You" and the save time immediately; the full named attribution appears on next load via
+      // findById()'s leadership_commentary_by_name join.
+      setIncident((prev) => prev ? {
+        ...prev, leadership_commentary: saved,
+        leadership_commentary_by_name: 'You',
+        leadership_commentary_at: new Date().toISOString(),
+      } : prev);
       setShowCommentary(false);
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'Failed to save commentary.');
@@ -375,6 +401,15 @@ export function GovernanceTimeline() {
                             Gap detected: Extended period between oversight activities
                           </div>
                         )}
+
+                        {evidenceUrl(event.sourceType, event.sourceId) && (
+                          <button
+                            onClick={() => navigate(evidenceUrl(event.sourceType, event.sourceId)!)}
+                            className="mt-2 text-xs text-primary font-medium hover:underline"
+                          >
+                            View evidence →
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -470,6 +505,12 @@ export function GovernanceTimeline() {
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="text-sm text-foreground whitespace-pre-wrap">{incident.leadership_commentary}</div>
+                  {(incident.leadership_commentary_by_name || incident.leadership_commentary_at) && (
+                    <div className="text-xs text-muted-foreground mt-2">
+                      {incident.leadership_commentary_by_name || 'Unknown reviewer'}
+                      {incident.leadership_commentary_at ? ` · ${new Date(incident.leadership_commentary_at).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

@@ -100,7 +100,7 @@ export class IncidentsController {
       if (isOutsideHouseScope(req, existing.house_id)) {
         return res.status(404).json({ success: false, message: 'Incident not found', errors: [] });
       }
-      const incident = await incidentsService.update(req.params.id, company_id, req.body);
+      const incident = await incidentsService.update(req.params.id, company_id, { ...req.body, updated_by: req.user!.user_id });
       return res.json({ success: true, data: incident, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to update incident';

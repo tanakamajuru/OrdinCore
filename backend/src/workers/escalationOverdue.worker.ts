@@ -112,6 +112,24 @@ export const startEscalationOverdueWorker = () => {
                 link: '/escalation-log',
               });
             }
+            // "Unavailable owner" acceptance check (brief): a next role existed but no active
+            // user fills it (e.g. no Director on record) -- genuinely different from reaching the
+            // top of the ladder on purpose. Keep the breach visible and alert the provider's
+            // designated cover (an ADMIN) so it isn't silently stuck.
+            if (nextRole && !nextUser) {
+              const admins = await query(
+                `SELECT id FROM users WHERE company_id = $1 AND role = 'ADMIN' AND status = 'active'`,
+                [esc.company_id]
+              );
+              for (const admin of admins.rows) {
+                await notificationsService.create({
+                  company_id: esc.company_id, user_id: admin.id, type: 'ESCALATION_COVER_NEEDED',
+                  title: 'Escalation cannot be escalated further — no eligible owner',
+                  body: `An overdue escalation needs a ${nextRole.replace(/_/g, ' ').toLowerCase()} but none is available: ${esc.reason || ''}`.trim(),
+                  link: '/escalation-log',
+                });
+              }
+            }
           }
         } catch (err) {
           logger.warn(`Failed to process overdue escalation ${esc.id}`, err);

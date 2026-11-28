@@ -9,6 +9,7 @@ import apiClient from "@/services/apiClient";
 interface TimelineEvent {
   timestamp: string;
   sourceType: string;
+  sourceId?: string;
   label: string;
   detail: string;
   actor: string;
@@ -68,6 +69,23 @@ export function ReconstructionReport() {
   // 27 Nov 2026 fix (developer brief §02, confirmed live): leadership_commentary is captured on
   // the incident and shown on Incident Detail, but this report never read it at all.
   const [leadershipCommentary, setLeadershipCommentary] = useState<string | null>(null);
+  // Finding 03 (incident reconstruction brief): each event names its evidence source and id but
+  // gives no way to open it from this report/PDF -- a full, clickable URL to the real record,
+  // using the same routes the rest of the app uses. The destination page enforces its own
+  // sign-in/tenant/house-scope access -- this only ever builds a link to it.
+  const evidenceUrl = (sourceType: string, sourceId?: string): string | null => {
+    if (!sourceId) return null;
+    switch (sourceType) {
+      case 'risk': case 'closure': return `/risk-register/${sourceId}`;
+      case 'escalation': return `/escalation-log?focus=${sourceId}`;
+      case 'pulse': return `/signals/${sourceId}`;
+      case 'action': return `/my-actions?focus=${sourceId}`;
+      case 'effectiveness': return `/effectiveness?focus=${sourceId}`;
+      default: return null;
+    }
+  };
+  const [leadershipCommentaryBy, setLeadershipCommentaryBy] = useState<string | null>(null);
+  const [leadershipCommentaryAt, setLeadershipCommentaryAt] = useState<string | null>(null);
   // 22 Nov 2026 brief -> Serious Incident workflow: when the governance-timeline evidence
   // fails to load, the report must say so everywhere a positive assurance claim or a
   // fabricated metric would otherwise appear — never default to "Oversight Present".
@@ -128,6 +146,8 @@ export function ReconstructionReport() {
         setRecommendations(reportData.recommendations || []);
         setLimitations(reportData.limitations || []);
         setLeadershipCommentary(reportData.leadership_commentary || null);
+        setLeadershipCommentaryBy(reportData.leadership_commentary_by || null);
+        setLeadershipCommentaryAt(reportData.leadership_commentary_at || null);
         setEvidenceUnavailable(false);
       } catch (err) {
         console.error("Failed to load timeline data", err);
@@ -362,6 +382,13 @@ export function ReconstructionReport() {
                     <div className="text-sm text-muted-foreground">
                       Action by: {event.actor} ({event.actorRole})
                     </div>
+                    {evidenceUrl(event.sourceType, event.sourceId) && (
+                      <div className="text-xs mt-1 print:text-black">
+                        Evidence: <a href={evidenceUrl(event.sourceType, event.sourceId)!} className="text-primary underline">
+                          {`${window.location.origin}${evidenceUrl(event.sourceType, event.sourceId)}`}
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -525,6 +552,12 @@ export function ReconstructionReport() {
                   <div className=" text-foreground mb-3">Leadership Commentary</div>
                   <div className="bg-muted border border-border rounded p-4">
                     <div className="text-sm text-foreground whitespace-pre-wrap">{leadershipCommentary}</div>
+                    {(leadershipCommentaryBy || leadershipCommentaryAt) && (
+                      <div className="text-xs text-muted-foreground mt-2">
+                        {leadershipCommentaryBy || 'Unknown reviewer'}
+                        {leadershipCommentaryAt ? ` · ${new Date(leadershipCommentaryAt).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

@@ -344,6 +344,12 @@ export class IncidentsService {
       data = { ...data, investigation_started_at: new Date() };
     }
 
+    // Incident reconstruction brief (27 Nov 2026), finding 02: the commentary was captured but
+    // never attributed -- record who wrote it and when, each time it changes.
+    if ('leadership_commentary' in data && data.leadership_commentary !== incident.leadership_commentary) {
+      data = { ...data, leadership_commentary_by: data.updated_by || incident.created_by, leadership_commentary_at: new Date() };
+    }
+
     const updated = await incidentsRepo.update(id, company_id, data);
 
     // Add update event to timeline
