@@ -520,19 +520,25 @@ export function ReconstructionReport() {
                       about escalation handling, review frequency or response times for this incident.
                     </div>
                   </div>
-                ) : (
-                  <div className="bg-muted border border-border rounded p-4">
-                    <div className="text-foreground">
-                      <div className=" mb-2">✓ OVERSIGHT PRESENT</div>
-                      <div className="text-sm space-y-1">
-                        <div>• Risk signals were identified and documented prior to incident</div>
-                        <div>• Escalation protocols were followed appropriately</div>
-                        <div>• Leadership reviews occurred with regular frequency</div>
-                        <div>• Response times were within acceptable parameters</div>
+                ) : (() => {
+                  const riskRecognitionOk = getComplianceStatus("riskRecognition") === "compliant";
+                  const escalationOk = getComplianceStatus("escalationResponse") === "compliant";
+                  const oversightOk = getComplianceStatus("oversightFrequency") === "compliant";
+                  const allOk = riskRecognitionOk && escalationOk && oversightOk;
+                  return (
+                    <div className={allOk ? "bg-muted border border-border rounded p-4" : "bg-amber-50 border border-amber-200 rounded p-4"}>
+                      <div className={allOk ? "text-foreground" : "text-amber-900"}>
+                        <div className="mb-2">{allOk ? "✓ OVERSIGHT PRESENT" : "⚠ CONCERNS IDENTIFIED"}</div>
+                        <div className="text-sm space-y-1">
+                          <div>{riskRecognitionOk ? "✓" : "✗"} Risk signals were {riskRecognitionOk ? "identified and documented prior to incident" : "not identified or documented within the expected recognition window"}</div>
+                          <div>{escalationOk ? "✓" : "✗"} Escalation protocols were {escalationOk ? "followed appropriately" : "not followed within the required response time"}</div>
+                          <div>{oversightOk ? "✓" : "✗"} Leadership reviews {oversightOk ? "occurred with regular frequency" : "did not occur within the required review interval"}</div>
+                          <div>{escalationOk ? "✓" : "✗"} Response times were {escalationOk ? "within acceptable parameters" : "outside acceptable parameters"}</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               <div>
